@@ -188,6 +188,11 @@ uv run pytest            # tests + coverage (fails below the threshold in pyproj
 On WSL, keep the virtualenv off the Windows mount for speed, e.g.
 `UV_PROJECT_ENVIRONMENT=~/.venvs/feels_like uv run pytest`.
 
+CI runs the same `prek` hooks and the test suite, plus Home Assistant's hassfest and
+the HACS validation. The tests run against the newest Home Assistant that
+`pytest-homeassistant-custom-component` supports, not against the minimum version in
+`hacs.json`.
+
 ### Translations
 
 Do not edit `custom_components/feels_like/translations/*.json` directly. Edit
