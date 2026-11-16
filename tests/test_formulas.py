@@ -185,6 +185,14 @@ def test_erbs_split_night_and_low_sun() -> None:
     assert low.dhi == 20
 
 
+def test_erbs_split_caps_beam_for_too_bright_low_sun() -> None:
+    """700 W/m² at 5° (e.g. held from midday) would give a ~6700 W/m² beam."""
+    comps = solar.erbs_split(700, 5, 172)
+    assert comps.dni == pytest.approx(
+        solar.SOLAR_CONSTANT * solar.eccentricity_factor(172)
+    )
+
+
 def test_mean_radiant_temperature_full_sun() -> None:
     """Ta 20 °C, GHI 800, sun 45°, albedo 0.2 -> Tmrt ~57.5 °C (hand check)."""
     comps = solar.erbs_split(800, 45, 172)

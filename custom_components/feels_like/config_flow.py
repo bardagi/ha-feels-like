@@ -69,6 +69,7 @@ from .const import (
     WIND_MOUNTING_FACTORS,
     WIND_MOUNTINGS,
 )
+from .units import normalize_unit
 
 _SUN_KEYS = (
     CONF_SUN_SOURCE,
@@ -169,7 +170,7 @@ def _check_unit(
     state = hass.states.get(entity_id)
     if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
         return
-    if state.attributes.get(ATTR_UNIT_OF_MEASUREMENT) not in valid:
+    if normalize_unit(state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)) not in valid:
         raise SchemaFlowError(error)
 
 

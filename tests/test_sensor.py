@@ -1,20 +1,25 @@
 """Sensor and coordinator tests."""
 
+import logging
 from datetime import timedelta
 from typing import Any
 
 import pytest
 from freezegun.api import FrozenDateTimeFactory
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_time_changed,
 )
 
+from custom_components.feels_like import coordinator as coordinator_module
 from custom_components.feels_like.const import DOMAIN
-from custom_components.feels_like.formulas import classic
+from custom_components.feels_like.formulas import classic, solar
+from custom_components.feels_like.formulas.feels_like import FeelsLikeResult
 from custom_components.feels_like.formulas.utci import utci
 
 from .helpers import state_of
@@ -71,11 +76,15 @@ def _set_backup(hass: HomeAssistant, **overrides: Any) -> None:
     hass.states.async_set("weather.home", "sunny", attributes)
 
 
-async def _setup(hass: HomeAssistant, options: dict[str, Any]) -> MockConfigEntry:
+async def _setup(
+    hass: HomeAssistant, options: dict[str, Any], *, entry_id: str | None = None
+) -> MockConfigEntry:
     # Most tests compare against the formulas, so they use one decimal; the
     # integer default is covered by the precision tests below.
     options = {"precision": "1", **options}
-    entry = MockConfigEntry(domain=DOMAIN, title=options["name"], options=options)
+    entry = MockConfigEntry(
+        domain=DOMAIN, title=options["name"], options=options, entry_id=entry_id
+    )
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
@@ -642,6 +651,7 @@ async def test_sun_input_not_needed_at_night(
         ("sensor.temp", "-120", "°C"),
         ("sensor.hum", "150", "%"),
         ("sensor.wind", "300", "km/h"),
+        ("sensor.solar", "5000", "W/m²"),
     ],
 )
 async def test_implausible_value_is_held(
@@ -679,3 +689,368 @@ async def test_snow_is_held_then_falls_back_to_ground(
     sun = state_of(hass, "sensor.ute_sun")
     assert sun.state != STATE_UNAVAILABLE
     assert sun.attributes["albedo"] == 0.2
+
+
+async def test_humidity_slightly_above_100_counts_as_saturated(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    """Sensors in fog often read a little over 100 %: not a dropout."""
+    freezer.move_to(MIDNIGHT_JUNE)
+    _set_inputs(hass, **{"sensor.hum": ("103", "%")})
+    await _setup(hass, {**UTCI_OPTIONS, "sun_source": "none"})
+    state = state_of(hass, "sensor.ute")
+    assert "held_inputs" not in state.attributes
+    assert float(state.state) == pytest.approx(utci(10, 100, 4.5, 10).value, abs=0.05)
+
+
+async def test_held_sun_sensor_follows_the_sun(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    """A held irradiance is scaled with clear sky, not kept from the afternoon."""
+    freezer.move_to("2026-06-21 15:00:00+00:00")
+    _set_inputs(hass)
+    await _setup(hass, {**UTCI_OPTIONS, "hold_time": "10800"})
+    before = state_of(hass, "sensor.ute_sun").attributes
+    assert before["irradiance"] == pytest.approx(700)
+
+    hass.states.async_set("sensor.solar", STATE_UNAVAILABLE)
+    await hass.async_block_till_done()
+    await _advance(hass, freezer, 150 * 60)
+    after = state_of(hass, "sensor.ute_sun").attributes
+    assert after["held_inputs"] == ["sensor.solar"]
+    assert after["solar_elevation"] < before["solar_elevation"] - 15
+    expected = (
+        700
+        * solar.haurwitz_clear_sky(after["solar_elevation"])
+        / solar.haurwitz_clear_sky(before["solar_elevation"])
+    )
+    assert after["irradiance"] == pytest.approx(expected, rel=0.02)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "reason"),
+    [
+        ({"method": "nonsense"}, "Invalid method 'nonsense'"),
+        ({"humidity_entity": None}, "No humidity_entity is configured"),
+        ({"irradiance_entity": None}, "No irradiance_entity is configured"),
+        ({"wind_mounting": "flagpole"}, "Invalid wind_mounting 'flagpole'"),
+        ({"ground_surface": "lava"}, "Invalid ground_surface 'lava'"),
+        ({"hold_time": "-5"}, "Invalid hold_time '-5'"),
+        ({"hold_time": "soon"}, "Invalid hold_time 'soon'"),
+        ({"wind_mounting": "custom", "wind_factor": 0}, "Invalid wind_factor '0'"),
+        ({"precision": "3"}, "Invalid precision '3'"),
+    ],
+)
+async def test_unusable_options_fail_setup_with_a_reason(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    overrides: dict[str, Any],
+    reason: str,
+) -> None:
+    """Options from a hand-edited entry fail clearly at setup, not every update."""
+    freezer.move_to(NOON_JUNE)
+    _set_inputs(hass)
+    merged = {"precision": "1", **UTCI_OPTIONS, **overrides}
+    options = {key: value for key, value in merged.items() if value is not None}
+    entry = MockConfigEntry(domain=DOMAIN, title="Ute", options=options)
+    entry.add_to_hass(hass)
+    assert not await hass.config_entries.async_setup(entry.entry_id)
+    assert entry.state is ConfigEntryState.SETUP_ERROR
+    assert entry.reason is not None
+    assert reason in entry.reason
+
+
+def _raise_value_error(_inputs: Any) -> FeelsLikeResult:
+    raise ValueError("boom")
+
+
+def _infinite_result(_inputs: Any) -> FeelsLikeResult:
+    return FeelsLikeResult(
+        shade=float("inf"), sun=None, stress=None, method_used="utci"
+    )
+
+
+@pytest.mark.parametrize(
+    ("broken_compute", "message"),
+    [
+        (_raise_value_error, "Calculation failed: boom"),
+        (_infinite_result, "Calculation failed: non-finite result"),
+    ],
+)
+async def test_calculation_failure_is_logged_once(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+    broken_compute: Any,
+    message: str,
+) -> None:
+    freezer.move_to(NOON_JUNE)
+    _set_inputs(hass)
+    await _setup(hass, UTCI_OPTIONS)
+
+    monkeypatch.setattr(coordinator_module, "compute", broken_compute)
+    await _advance(hass, freezer, 5 * 60)
+    await _advance(hass, freezer, 5 * 60)
+    for e in UTCI_ENTITIES:
+        assert state_of(hass, e).state == STATE_UNAVAILABLE, e
+    errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert len(errors) == 1
+    assert message in errors[0].getMessage()
+
+    monkeypatch.undo()
+    await _advance(hass, freezer, 5 * 60)
+    for e in UTCI_ENTITIES:
+        assert state_of(hass, e).state != STATE_UNAVAILABLE, e
+
+
+def _messages(caplog: pytest.LogCaptureFixture, level: int, text: str) -> list[str]:
+    return [
+        r.getMessage()
+        for r in caplog.records
+        if r.levelno == level and text in r.getMessage()
+    ]
+
+
+async def test_input_out_since_startup_is_reported(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Without a value to hold, an input that stays out is not only debug-logged."""
+    caplog.set_level(logging.DEBUG, logger="custom_components.feels_like")
+    freezer.move_to(NOON_JUNE)
+    _set_inputs(hass)
+    hass.states.async_set("sensor.wind", STATE_UNAVAILABLE)
+    await _setup(hass, {**UTCI_OPTIONS, "hold_time": "900"})
+    assert _messages(caplog, logging.DEBUG, "sensor.wind is unavailable")
+    assert not _messages(caplog, logging.INFO, "sensor.wind")
+
+    await _advance(hass, freezer, 15 * 60)
+    assert _messages(caplog, logging.INFO, "sensor.wind") == [
+        "Ute: sensor.wind is unavailable for more than 15 minutes"
+    ]
+
+
+async def test_missing_entity_warns_after_a_while(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An input entity that stays gone (e.g. renamed) is a configuration problem."""
+    freezer.move_to(NOON_JUNE)
+    _set_inputs(hass)
+    hass.states.async_remove("sensor.wind")
+    await _setup(hass, UTCI_OPTIONS)
+    await _advance(hass, freezer, 5 * 60)
+    assert not _messages(caplog, logging.WARNING, "sensor.wind")
+
+    await _advance(hass, freezer, 5 * 60)
+    await _advance(hass, freezer, 5 * 60)
+    assert _messages(caplog, logging.WARNING, "sensor.wind") == [
+        "Ute: sensor.wind does not exist; check the helper's configuration"
+    ]
+
+
+@pytest.mark.parametrize(
+    ("entity_id", "value", "unit"),
+    [
+        ("sensor.temp", "10", "ºC"),  # ordinal sign, not a degree sign
+        ("sensor.temp", "50", "F"),
+        ("sensor.hum", "80", "%RH"),
+        ("sensor.wind", "10.8", "kph"),
+        ("sensor.solar", "700", "W/m2"),
+    ],
+)
+async def test_unit_spelling_variants(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    entity_id: str,
+    value: str,
+    unit: str,
+) -> None:
+    """Common non-standard unit spellings give the same result as canonical ones."""
+    freezer.move_to(NOON_JUNE)
+    _set_inputs(hass)
+    await _setup(hass, UTCI_OPTIONS)
+    expected = {e: state_of(hass, e).state for e in UTCI_ENTITIES}
+
+    hass.states.async_set(entity_id, value, {"unit_of_measurement": unit})
+    await hass.async_block_till_done()
+    for e in UTCI_ENTITIES:
+        state = state_of(hass, e)
+        assert state.state == expected[e], e
+        assert "held_inputs" not in state.attributes, e
+
+
+async def test_lux_spelling_variant(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(NOON_JUNE)
+    _set_inputs(hass, **{"sensor.lux": ("84000", "lux")})
+    await _setup(
+        hass,
+        {
+            **UTCI_OPTIONS,
+            "sun_source": "illuminance",
+            "illuminance_entity": "sensor.lux",
+            "lux_per_wm2": 120,
+        },
+    )
+    assert state_of(hass, "sensor.ute_sun").attributes["irradiance"] == pytest.approx(
+        700
+    )
+
+
+# --------------------------------------------------- held values over restarts
+
+ENTRY_ID = "feels_like_test_entry"
+STORE_KEY = f"{DOMAIN}.{ENTRY_ID}"
+NOON = dt_util.as_utc(dt_util.parse_datetime(NOON_JUNE) or dt_util.utcnow())
+
+
+def _stored(data: Any) -> dict[str, Any]:
+    return {"version": 1, "minor_version": 1, "key": STORE_KEY, "data": data}
+
+
+def _temperature_record(**overrides: Any) -> dict[str, Any]:
+    record = {
+        "entity_id": "sensor.temp",
+        "value": 10.0,
+        "time": (NOON - timedelta(minutes=5)).isoformat(),
+    }
+    return {**record, **overrides}
+
+
+async def test_hold_survives_a_restart(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    hass_storage: dict[str, Any],
+) -> None:
+    """A sensor that has not reported yet after a restart keeps its saved value."""
+    freezer.move_to(NOON_JUNE)
+    _set_inputs(hass)
+    hass.states.async_set("sensor.temp", STATE_UNKNOWN)
+    hass_storage[STORE_KEY] = _stored(
+        {"inputs": {"temperature": _temperature_record()}}
+    )
+    await _setup(hass, UTCI_OPTIONS, entry_id=ENTRY_ID)
+    for e in UTCI_ENTITIES:
+        state = state_of(hass, e)
+        assert state.state != STATE_UNAVAILABLE, e
+        assert state.attributes["held_inputs"] == ["sensor.temp"], e
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"inputs": {"temperature": _temperature_record(entity_id="sensor.other")}},
+        {
+            "inputs": {
+                "temperature": _temperature_record(
+                    time=(NOON - timedelta(hours=2)).isoformat()
+                )
+            }
+        },
+        {
+            "inputs": {
+                "temperature": _temperature_record(
+                    time=(NOON + timedelta(hours=2)).isoformat()
+                )
+            }
+        },
+        {"inputs": {"temperature": _temperature_record(time="2026-06-21T10:55:00")}},
+        {"inputs": {"temperature": _temperature_record(time="yesterday")}},
+        {"inputs": {"temperature": _temperature_record(value="warm")}},
+        {"inputs": {"temperature": _temperature_record(value=True)}},
+        {"inputs": {"temperature": _temperature_record(value=float("nan"))}},
+        {"inputs": {"temperature": "garbage"}},
+        {"inputs": ["garbage"]},
+        ["garbage"],
+    ],
+    ids=[
+        "other_entity",
+        "older_than_hold",
+        "in_the_future",
+        "naive_time",
+        "bad_time",
+        "text_value",
+        "bool_value",
+        "nan_value",
+        "bad_record",
+        "bad_inputs",
+        "bad_data",
+    ],
+)
+async def test_unusable_saved_values_are_ignored(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    hass_storage: dict[str, Any],
+    data: Any,
+) -> None:
+    freezer.move_to(NOON_JUNE)
+    _set_inputs(hass)
+    hass.states.async_set("sensor.temp", STATE_UNKNOWN)
+    hass_storage[STORE_KEY] = _stored(data)
+    await _setup(hass, UTCI_OPTIONS, entry_id=ENTRY_ID)
+    assert state_of(hass, "sensor.ute_shade").state == STATE_UNAVAILABLE
+
+
+async def test_held_values_are_saved_on_unload(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    hass_storage: dict[str, Any],
+) -> None:
+    freezer.move_to(NOON_JUNE)
+    _set_inputs(hass)
+    entry = await _setup(hass, UTCI_OPTIONS, entry_id=ENTRY_ID)
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+    inputs = hass_storage[STORE_KEY]["data"]["inputs"]
+    assert set(inputs) == {"temperature", "humidity", "wind", "sun"}
+    assert inputs["temperature"] == {
+        "entity_id": "sensor.temp",
+        "value": 10.0,
+        "time": NOON.isoformat(),
+    }
+    assert inputs["wind"]["value"] == pytest.approx(4.5)
+    # The sun is saved relative to clear sky.
+    assert 0 < inputs["sun"]["value"] <= 1.5
+
+
+async def test_hold_survives_a_reload(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    hass_storage: dict[str, Any],
+) -> None:
+    """Changing a helper's options while an input is out keeps the hold."""
+    freezer.move_to(NOON_JUNE)
+    _set_inputs(hass)
+    entry = await _setup(hass, UTCI_OPTIONS, entry_id=ENTRY_ID)
+    hass.states.async_set("sensor.wind", STATE_UNAVAILABLE)
+    await hass.async_block_till_done()
+    before = state_of(hass, "sensor.ute_shade")
+    assert before.attributes["held_inputs"] == ["sensor.wind"]
+
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    after = state_of(hass, "sensor.ute_shade")
+    assert after.attributes["held_inputs"] == ["sensor.wind"]
+    assert after.attributes["wind_speed_10m"] == pytest.approx(4.5)
+
+
+async def test_removing_the_helper_deletes_saved_values(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    hass_storage: dict[str, Any],
+) -> None:
+    freezer.move_to(NOON_JUNE)
+    _set_inputs(hass)
+    entry = await _setup(hass, UTCI_OPTIONS, entry_id=ENTRY_ID)
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert STORE_KEY in hass_storage
+
+    await hass.config_entries.async_remove(entry.entry_id)
+    await hass.async_block_till_done()
+    assert STORE_KEY not in hass_storage

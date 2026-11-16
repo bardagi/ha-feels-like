@@ -36,11 +36,8 @@ from .const import (
     ATTR_UTCI,
     ATTR_VAPOUR_PRESSURE,
     ATTR_WIND_SPEED_10M,
-    CONF_PRECISION,
-    DEFAULT_PRECISION,
     DOMAIN,
     METHOD_SPECS,
-    SUN_SOURCE_NONE,
 )
 from .coordinator import FeelsLikeCoordinator, FeelsLikeData
 from .formulas.utci import UTCI_CATEGORIES
@@ -88,7 +85,7 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     settings = coordinator.settings
     spec = METHOD_SPECS[settings.method]
-    has_sun = spec.supports_sun and settings.sun_source != SUN_SOURCE_NONE
+    has_sun = settings.has_sun
 
     entities: list[SensorEntity] = [
         FeelsLikeSensor(coordinator, entry, KIND_PRIMARY, has_sun=has_sun)
@@ -149,7 +146,7 @@ class FeelsLikeSensor(FeelsLikeEntity, SensorEntity):
         """Initialise the sensor."""
         super().__init__(coordinator, entry)
         self._kind = kind
-        self._precision = int(entry.options.get(CONF_PRECISION, DEFAULT_PRECISION))
+        self._precision = coordinator.settings.precision
         self._attr_suggested_display_precision = self._precision
         if kind == KIND_SUN:
             self._attr_unique_id = f"{entry.entry_id}_sun"

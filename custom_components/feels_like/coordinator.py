@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import math
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum, auto
@@ -32,9 +32,11 @@ from homeassistant.core import (
     State,
     callback,
 )
+from homeassistant.exceptions import ConfigEntryError, HomeAssistantError
 from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.event import async_track_state_change_event
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.storage import Store
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 from homeassistant.util.unit_conversion import SpeedConverter, TemperatureConverter
 
@@ -46,6 +48,7 @@ from .const import (
     CONF_LUX_PER_WM2,
     CONF_METHOD,
     CONF_MIN_UPDATE_INTERVAL,
+    CONF_PRECISION,
     CONF_SNOW_ENTITY,
     CONF_SUN_SOURCE,
     CONF_TEMPERATURE_ENTITY,
@@ -56,22 +59,27 @@ from .const import (
     DEFAULT_HOLD_TIME,
     DEFAULT_LUX_PER_WM2,
     DEFAULT_MIN_UPDATE_INTERVAL,
+    DEFAULT_PRECISION,
     DEFAULT_WIND_MOUNTING,
     DOMAIN,
     GROUND_ALBEDO,
     METHOD_SPECS,
+    PRECISIONS,
     SNOW_ALBEDO,
     SUN_SOURCE_ENTITY_KEYS,
     SUN_SOURCE_ILLUMINANCE,
     SUN_SOURCE_NONE,
     SUN_SOURCE_WEATHER,
+    SUN_SOURCES,
     UPDATE_INTERVAL_MINUTES,
     WIND_MOUNTING_CUSTOM,
     WIND_MOUNTING_FACTORS,
+    WIND_MOUNTINGS,
 )
 from .formulas import solar
 from .formulas.feels_like import FeelsLikeInputs, FeelsLikeResult, compute
 from .formulas.season import meteorological_season
+from .units import normalize_unit
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -88,8 +96,26 @@ ATTR_WEATHER_WIND_SPEED_UNIT = "wind_speed_unit"
 
 # Readings outside these ranges are sensor glitches, handled like a dropout.
 TEMPERATURE_RANGE = (-90.0, 70.0)  # °C
-HUMIDITY_RANGE = (0.0, 100.0)  # %
+# Sensors in fog, or with a calibration offset, read a little above 100 %:
+# such values count as 100 %; only larger ones are glitches.
+HUMIDITY_RANGE = (0.0, 110.0)  # %
+MAX_HUMIDITY = 100.0  # %
 MAX_WIND_SPEED = 75.0  # m/s, as measured (before the mounting factor)
+MAX_IRRADIANCE = 2000.0  # W/m², above the highest values measured on the ground
+
+# A measured sun input is held relative to clear sky, so a held value follows
+# the sun. The clear-sky model is only used where it is meaningful (sun above
+# about 5°), and the ratio is capped (cloud edges can briefly exceed clear sky).
+MIN_CLEAR_SKY_FOR_INDEX = 50.0  # W/m²
+MAX_CLEAR_SKY_INDEX = 1.5
+
+# An input out this long is reported even if it never had a value to hold; a
+# missing entity is then most likely renamed or deleted.
+OUT_TOO_LONG = timedelta(minutes=10)
+
+# Last good input values are saved so the hold time bridges restarts.
+STORAGE_VERSION = 1
+SAVE_DELAY = 60  # seconds; pending values are always written when HA stops
 
 # Values of the irradiance_source attribute.
 IRRADIANCE_SOURCE_SENSOR = "sensor"
@@ -108,10 +134,17 @@ _SNOW = "snow"
 class InputError(Exception):
     """An input entity is missing, unavailable or has an unsupported value."""
 
-    def __init__(self, message: str, *, config_problem: bool = False) -> None:
-        """Initialise; config_problem marks errors the user must fix."""
+    def __init__(
+        self, message: str, *, config_problem: bool = False, missing: bool = False
+    ) -> None:
+        """Initialise.
+
+        config_problem marks errors the user must fix; missing marks an entity
+        that does not exist (yet).
+        """
         super().__init__(message)
         self.config_problem = config_problem
+        self.missing = missing
 
 
 class _Origin(Enum):
@@ -136,6 +169,56 @@ class _Status:
         self.problems.append((problem, level))
 
 
+# ------------------------------------------------------------------ settings
+
+
+def _invalid(key: str, value: Any) -> ConfigEntryError:
+    return ConfigEntryError(f"Invalid {key} '{value}'; reconfigure the helper")
+
+
+def _choice(
+    options: Mapping[str, Any], key: str, default: str | None, valid: Collection[str]
+) -> str:
+    value = options.get(key, default)
+    if not isinstance(value, str) or value not in valid:
+        raise _invalid(key, value)
+    return value
+
+
+def _number(
+    options: Mapping[str, Any], key: str, default: Any, *, positive: bool = False
+) -> float:
+    raw = options.get(key, default)
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        raise _invalid(key, raw) from None
+    if not math.isfinite(value) or value < 0 or (positive and value == 0):
+        raise _invalid(key, raw)
+    return value
+
+
+def _optional_entity(options: Mapping[str, Any], key: str) -> str | None:
+    value = options.get(key) or None
+    if value is not None and not isinstance(value, str):
+        raise _invalid(key, value)
+    return value
+
+
+def _entity(options: Mapping[str, Any], key: str) -> str:
+    value = _optional_entity(options, key)
+    if value is None:
+        raise ConfigEntryError(f"No {key} is configured; reconfigure the helper")
+    return value
+
+
+def _precision(options: Mapping[str, Any]) -> int:
+    value = str(options.get(CONF_PRECISION, DEFAULT_PRECISION))
+    if value not in PRECISIONS:
+        raise _invalid(CONF_PRECISION, value)
+    return int(value)
+
+
 @dataclass(frozen=True, slots=True)
 class Settings:
     """Resolved configuration of one helper."""
@@ -153,51 +236,88 @@ class Settings:
     min_update_interval: float
     hold_time: timedelta = timedelta(seconds=float(DEFAULT_HOLD_TIME))
     backup_weather_entity: str | None = None
+    precision: int = int(DEFAULT_PRECISION)
 
     @classmethod
     def from_options(cls, options: Mapping[str, Any]) -> Settings:
-        """Build settings from config entry options."""
-        method = options[CONF_METHOD]
+        """Build settings from config entry options.
+
+        Raises ConfigEntryError for options that cannot be used (an entry
+        edited by hand or written by another version), so the problem is
+        reported once at setup rather than as a failure on every update.
+        """
+        method = _choice(options, CONF_METHOD, None, METHOD_SPECS)
         spec = METHOD_SPECS[method]
 
-        mounting = options.get(CONF_WIND_MOUNTING, DEFAULT_WIND_MOUNTING)
-        if mounting == WIND_MOUNTING_CUSTOM:
-            wind_factor = float(options.get(CONF_WIND_FACTOR, 1.0))
-        else:
-            wind_factor = WIND_MOUNTING_FACTORS.get(mounting, 1.0)
+        wind_factor = 1.0
+        if spec.needs_wind:
+            mounting = _choice(
+                options, CONF_WIND_MOUNTING, DEFAULT_WIND_MOUNTING, WIND_MOUNTINGS
+            )
+            if mounting == WIND_MOUNTING_CUSTOM:
+                wind_factor = _number(options, CONF_WIND_FACTOR, 1.0, positive=True)
+            else:
+                wind_factor = WIND_MOUNTING_FACTORS[mounting]
 
         sun_source = (
-            options.get(CONF_SUN_SOURCE, SUN_SOURCE_NONE)
+            _choice(options, CONF_SUN_SOURCE, SUN_SOURCE_NONE, SUN_SOURCES)
             if spec.supports_sun
             else SUN_SOURCE_NONE
         )
-        sun_entity_key = SUN_SOURCE_ENTITY_KEYS.get(sun_source)
+        has_sun = sun_source != SUN_SOURCE_NONE
 
         return cls(
             method=method,
-            temperature_entity=options[CONF_TEMPERATURE_ENTITY],
+            temperature_entity=_entity(options, CONF_TEMPERATURE_ENTITY),
             humidity_entity=(
-                options.get(CONF_HUMIDITY_ENTITY) if spec.needs_humidity else None
+                _entity(options, CONF_HUMIDITY_ENTITY) if spec.needs_humidity else None
             ),
-            wind_entity=options.get(CONF_WIND_ENTITY) if spec.needs_wind else None,
+            wind_entity=_entity(options, CONF_WIND_ENTITY) if spec.needs_wind else None,
             wind_factor=wind_factor,
             sun_source=sun_source,
-            sun_entity=options.get(sun_entity_key) if sun_entity_key else None,
-            lux_per_wm2=float(options.get(CONF_LUX_PER_WM2, DEFAULT_LUX_PER_WM2)),
-            ground_albedo=GROUND_ALBEDO[
-                options.get(CONF_GROUND_SURFACE, DEFAULT_GROUND_SURFACE)
-            ],
-            snow_entity=(
-                options.get(CONF_SNOW_ENTITY) if sun_source != SUN_SOURCE_NONE else None
+            sun_entity=(
+                _entity(options, SUN_SOURCE_ENTITY_KEYS[sun_source])
+                if has_sun
+                else None
             ),
-            min_update_interval=float(
-                options.get(CONF_MIN_UPDATE_INTERVAL, DEFAULT_MIN_UPDATE_INTERVAL)
+            lux_per_wm2=(
+                _number(options, CONF_LUX_PER_WM2, DEFAULT_LUX_PER_WM2, positive=True)
+                if sun_source == SUN_SOURCE_ILLUMINANCE
+                else DEFAULT_LUX_PER_WM2
+            ),
+            ground_albedo=GROUND_ALBEDO[
+                _choice(
+                    options, CONF_GROUND_SURFACE, DEFAULT_GROUND_SURFACE, GROUND_ALBEDO
+                )
+            ],
+            snow_entity=_optional_entity(options, CONF_SNOW_ENTITY)
+            if has_sun
+            else None,
+            min_update_interval=_number(
+                options, CONF_MIN_UPDATE_INTERVAL, DEFAULT_MIN_UPDATE_INTERVAL
             ),
             hold_time=timedelta(
-                seconds=float(options.get(CONF_HOLD_TIME, DEFAULT_HOLD_TIME))
+                seconds=_number(options, CONF_HOLD_TIME, DEFAULT_HOLD_TIME)
             ),
-            backup_weather_entity=options.get(CONF_BACKUP_WEATHER_ENTITY) or None,
+            backup_weather_entity=_optional_entity(options, CONF_BACKUP_WEATHER_ENTITY),
+            precision=_precision(options),
         )
+
+    @property
+    def has_sun(self) -> bool:
+        """Whether a sun input is configured (and the method uses it)."""
+        return self.sun_entity is not None
+
+    @property
+    def input_entities(self) -> dict[str, str | None]:
+        """Input entity behind each key of the last-good-value cache."""
+        return {
+            _TEMPERATURE: self.temperature_entity,
+            _HUMIDITY: self.humidity_entity,
+            _WIND: self.wind_entity,
+            _SUN: self.sun_entity,
+            _SNOW: self.snow_entity,
+        }
 
     @property
     def tracked_entities(self) -> list[str]:
@@ -206,17 +326,7 @@ class Settings:
         The backup weather entity is not tracked: it is only read while an input
         is out, and the periodic refresh picks up its changes.
         """
-        return [
-            entity_id
-            for entity_id in (
-                self.temperature_entity,
-                self.humidity_entity,
-                self.wind_entity,
-                self.sun_entity,
-                self.snow_entity,
-            )
-            if entity_id
-        ]
+        return [entity_id for entity_id in self.input_entities.values() if entity_id]
 
 
 @dataclass(frozen=True, slots=True)
@@ -240,8 +350,12 @@ class FeelsLikeData:
 # ------------------------------------------------------------- value helpers
 
 
-def _level(err: InputError) -> int:
-    return logging.WARNING if err.config_problem else logging.DEBUG
+def _assess(err: InputError, out_for: timedelta) -> tuple[str, int]:
+    """Return a hint to add to an input problem and the level to log it at."""
+    if err.missing and out_for >= OUT_TOO_LONG:
+        # Gone for this long: most likely renamed or deleted.
+        return "; check the helper's configuration", logging.WARNING
+    return "", logging.WARNING if err.config_problem else logging.DEBUG
 
 
 def _attribute_value(
@@ -280,7 +394,7 @@ def _check_humidity(entity_id: str, value: float) -> float:
     low, high = HUMIDITY_RANGE
     if not low <= value <= high:
         raise InputError(f"{entity_id} has implausible humidity {value:g} %")
-    return value
+    return min(value, MAX_HUMIDITY)
 
 
 def _to_meters_per_second(entity_id: str, value: float, unit: str) -> float:
@@ -292,6 +406,29 @@ def _to_meters_per_second(entity_id: str, value: float, unit: str) -> float:
     if speed > MAX_WIND_SPEED:
         raise InputError(f"{entity_id} has implausible wind speed {speed:g} m/s")
     return max(speed, 0.0)
+
+
+def _check_irradiance(entity_id: str, value: float) -> float:
+    if value > MAX_IRRADIANCE:
+        raise InputError(f"{entity_id} has implausible irradiance {value:g} W/m²")
+    return max(value, 0.0)
+
+
+def _restored_value(
+    record: Any, entity_id: str, now: datetime, hold_time: timedelta
+) -> tuple[float, datetime] | None:
+    """A saved last good value, if valid, of this entity and still within hold."""
+    if not isinstance(record, dict) or record.get("entity_id") != entity_id:
+        return None
+    value = record.get("value")
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    read_at = dt_util.parse_datetime(str(record.get("time")))
+    if not math.isfinite(value) or read_at is None or read_at.tzinfo is None:
+        return None
+    if not timedelta(0) <= now - read_at < hold_time:
+        return None
+    return float(value), read_at
 
 
 class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
@@ -322,10 +459,17 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
         self._last_problem_level = logging.NOTSET
         # Last good value of each input and when it was read.
         self._last_good: dict[str, tuple[float, datetime]] = {}
+        # When each input that is out now was first found out.
+        self._out_since: dict[str, datetime] = {}
+        self._store = holds_store(hass, entry.entry_id)
 
     async def _async_update_data(self) -> FeelsLikeData:
         """Recalculate (on schedule and on throttled input changes)."""
-        return self.calculate()
+        try:
+            return self.calculate()
+        except (ArithmeticError, ValueError) as err:
+            # Logged once by the coordinator, not on every refresh.
+            raise UpdateFailed(f"Calculation failed: {err}") from err
 
     @callback
     def async_track_inputs(self) -> CALLBACK_TYPE:
@@ -339,7 +483,53 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
             self.hass, self.settings.tracked_entities, _state_changed
         )
 
+    # ------------------------------------------------------------ persistence
+
+    async def async_restore(self) -> None:
+        """Restore last good values saved before a restart or reload."""
+        try:
+            stored = await self._store.async_load()
+        except HomeAssistantError as err:
+            _LOGGER.debug(
+                "%s: cannot load saved input values: %s", self.config_entry.title, err
+            )
+            return
+        inputs = stored.get("inputs") if isinstance(stored, dict) else None
+        if not isinstance(inputs, dict):
+            return
+        now = dt_util.utcnow()
+        for key, entity_id in self.settings.input_entities.items():
+            if entity_id is None:
+                continue
+            restored = _restored_value(
+                inputs.get(key), entity_id, now, self.settings.hold_time
+            )
+            if restored is not None:
+                self._last_good[key] = restored
+
+    async def async_save_holds(self) -> None:
+        """Save the last good values now (a reload reads them back at once)."""
+        await self._store.async_save(self._holds_to_save())
+
+    def _holds_to_save(self) -> dict[str, Any]:
+        entities = self.settings.input_entities
+        return {
+            "inputs": {
+                key: {
+                    "entity_id": entities[key],
+                    "value": value,
+                    "time": read_at.isoformat(),
+                }
+                for key, (value, read_at) in self._last_good.items()
+                if entities.get(key)
+            }
+        }
+
     # ------------------------------------------------------------ resolution
+
+    def _out_for(self, key: str, now: datetime) -> timedelta:
+        """How long an input has been out (zero on its first failure)."""
+        return now - self._out_since.setdefault(key, now)
 
     def _read_live(
         self,
@@ -351,6 +541,7 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
         """Read an input entity and remember the value as its last good one."""
         value = read(entity_id)
         self._last_good[key] = (value, now)
+        self._out_since.pop(key, None)
         return value
 
     def _substitute(
@@ -366,17 +557,24 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
 
         Re-raises the input's error if neither is available.
         """
-        level = _level(err)
+        hold_time = self.settings.hold_time
+        out_for = self._out_for(key, now)
+        hint, level = _assess(err, out_for)
         last = self._last_good.get(key)
-        if last is not None and now - last[1] < self.settings.hold_time:
+        if last is not None and now - last[1] < hold_time:
             status.held.append(entity_id)
-            status.report(f"{err}; using its last value", level)
+            status.report(f"{err}{hint}; using its last value", level)
             return last[0], _Origin.HELD
 
-        problem = str(err)
+        problem = f"{err}{hint}"
         if last is not None:
             # Out for longer than the hold time: worth telling the user.
-            problem = f"{err} for longer than the hold time"
+            problem = f"{err} for longer than the hold time{hint}"
+            level = max(level, logging.INFO)
+        elif out_for >= (report_after := max(hold_time, OUT_TOO_LONG)):
+            # Never had a value to hold (e.g. out since start-up).
+            minutes = round(report_after.total_seconds() / 60)
+            problem = f"{err} for more than {minutes} minutes{hint}"
             level = max(level, logging.INFO)
         weather = self.settings.backup_weather_entity
         if backup is not None and weather is not None:
@@ -430,7 +628,7 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
     def _available_state(self, entity_id: str) -> State:
         state = self.hass.states.get(entity_id)
         if state is None:
-            raise InputError(f"{entity_id} does not exist")
+            raise InputError(f"{entity_id} does not exist", missing=True)
         if state.state in _UNAVAILABLE_STATES:
             raise InputError(f"{entity_id} is {state.state}")
         return state
@@ -451,7 +649,8 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
     def _read_temperature(self, entity_id: str) -> float:
         value, state = self._numeric_state(entity_id)
         unit = (
-            state.attributes.get(ATTR_UNIT_OF_MEASUREMENT) or UnitOfTemperature.CELSIUS
+            normalize_unit(state.attributes.get(ATTR_UNIT_OF_MEASUREMENT))
+            or UnitOfTemperature.CELSIUS
         )
         return _to_celsius(entity_id, value, unit)
 
@@ -459,14 +658,14 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
         state = self._available_state(entity_id)
         value = _attribute_value(state, entity_id, ATTR_WEATHER_TEMPERATURE)
         unit = (
-            state.attributes.get(ATTR_WEATHER_TEMPERATURE_UNIT)
+            normalize_unit(state.attributes.get(ATTR_WEATHER_TEMPERATURE_UNIT))
             or self.hass.config.units.temperature_unit
         )
         return _to_celsius(entity_id, value, unit)
 
     def _read_humidity(self, entity_id: str) -> float:
         value, state = self._numeric_state(entity_id)
-        unit = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
+        unit = normalize_unit(state.attributes.get(ATTR_UNIT_OF_MEASUREMENT))
         if unit not in (None, PERCENTAGE):
             raise InputError(
                 f"{entity_id} has unsupported unit '{unit}'", config_problem=True
@@ -482,7 +681,7 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
         """Wind at 10 m from the wind sensor (mounting factor applied)."""
         value, state = self._numeric_state(entity_id)
         unit = (
-            state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
+            normalize_unit(state.attributes.get(ATTR_UNIT_OF_MEASUREMENT))
             or UnitOfSpeed.METERS_PER_SECOND
         )
         speed = _to_meters_per_second(entity_id, value, unit)
@@ -493,7 +692,7 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
         state = self._available_state(entity_id)
         value = _attribute_value(state, entity_id, ATTR_WEATHER_WIND_SPEED)
         unit = (
-            state.attributes.get(ATTR_WEATHER_WIND_SPEED_UNIT)
+            normalize_unit(state.attributes.get(ATTR_WEATHER_WIND_SPEED_UNIT))
             or self.hass.config.units.wind_speed_unit
         )
         return _to_meters_per_second(entity_id, value, unit)
@@ -513,13 +712,14 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
             )
 
         value, state = self._numeric_state(entity_id)
-        unit = state.attributes.get(ATTR_UNIT_OF_MEASUREMENT)
+        unit = normalize_unit(state.attributes.get(ATTR_UNIT_OF_MEASUREMENT))
         if source == SUN_SOURCE_ILLUMINANCE:
             if unit not in (None, LIGHT_LUX):
                 raise InputError(
                     f"{entity_id} has unsupported unit '{unit}'", config_problem=True
                 )
-            return solar.lux_to_irradiance(value, self.settings.lux_per_wm2)
+            irradiance = solar.lux_to_irradiance(value, self.settings.lux_per_wm2)
+            return _check_irradiance(entity_id, irradiance)
 
         if unit == UnitOfIrradiance.BTUS_PER_HOUR_SQUARE_FOOT:
             value *= BTU_PER_HOUR_SQFT_TO_W_PER_M2
@@ -527,19 +727,35 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
             raise InputError(
                 f"{entity_id} has unsupported unit '{unit}'", config_problem=True
             )
-        return max(value, 0.0)
+        return _check_irradiance(entity_id, value)
 
-    def _read_snow_albedo(self, entity_id: str) -> float:
+    def _read_snow(self, entity_id: str) -> float:
+        """1 if there is snow on the ground, else 0."""
         state = self._available_state(entity_id)
         if state.state == STATE_ON:
-            return SNOW_ALBEDO
+            return 1.0
         try:
             depth = float(state.state)
         except ValueError:
-            return self.settings.ground_albedo  # "off" or another non-snow state
-        return SNOW_ALBEDO if depth > 0 else self.settings.ground_albedo
+            return 0.0  # "off" or another non-snow state
+        return 1.0 if depth > 0 else 0.0
 
     # ------------------------------------------------------------ optional inputs
+
+    def _remember_sun(self, raw: float, clear_sky: float, now: datetime) -> None:
+        """Keep a live sun reading to hold through a later dropout.
+
+        Cloud cover (weather source) is kept as it is. Measured irradiance is
+        kept relative to clear sky, so a held value follows the sun instead of
+        carrying the midday sun into the evening. Near the horizon the previous
+        value is kept, as the clear-sky model means little there.
+        """
+        self._out_since.pop(_SUN, None)
+        if self.settings.sun_source == SUN_SOURCE_WEATHER:
+            self._last_good[_SUN] = (raw, now)
+        elif clear_sky >= MIN_CLEAR_SKY_FOR_INDEX:
+            index = min(raw / clear_sky, MAX_CLEAR_SKY_INDEX)
+            self._last_good[_SUN] = (index, now)
 
     def _irradiance(
         self, elevation: float, now: datetime, status: _Status
@@ -547,16 +763,17 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
         """Return (global horizontal irradiance, source) or (None, None)."""
         source = self.settings.sun_source
         entity_id = self.settings.sun_entity
-        if source == SUN_SOURCE_NONE or entity_id is None:
+        if entity_id is None:
             return None, None
 
+        clear_sky = solar.haurwitz_clear_sky(elevation)
         try:
-            raw = self._read_live(_SUN, entity_id, self._read_sun, now)
-            origin = _Origin.LIVE
+            raw = self._read_sun(entity_id)
         except InputError as err:
             if elevation <= 0:
                 # No sunlight anyway: a missing sun input does not matter.
-                status.report(f"{err} (not needed while the sun is down)", _level(err))
+                hint, level = _assess(err, self._out_for(_SUN, now))
+                status.report(f"{err}{hint} (not needed while the sun is down)", level)
                 return 0.0, IRRADIANCE_SOURCE_NIGHT
             try:
                 raw, origin = self._substitute(
@@ -564,11 +781,15 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
                 )
             except InputError:
                 return None, None
+        else:
+            origin = _Origin.LIVE
+            self._remember_sun(raw, clear_sky, now)
 
-        # Cloud cover is held rather than irradiance, so estimates follow the sun.
         if source == SUN_SOURCE_WEATHER or origin is _Origin.BACKUP:
-            clear = solar.haurwitz_clear_sky(elevation)
-            return solar.kasten_czeplak(clear, raw), IRRADIANCE_SOURCE_ESTIMATED
+            # Cloud cover: estimate irradiance for the sun's current elevation.
+            return solar.kasten_czeplak(clear_sky, raw), IRRADIANCE_SOURCE_ESTIMATED
+        if origin is _Origin.HELD:
+            raw *= clear_sky  # held as a clear-sky index, see _remember_sun
         if source == SUN_SOURCE_ILLUMINANCE:
             return raw, IRRADIANCE_SOURCE_ILLUMINANCE
         return raw, IRRADIANCE_SOURCE_SENSOR
@@ -578,12 +799,12 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
         if not entity_id:
             return self.settings.ground_albedo
         try:
-            albedo, _origin = self._resolve(
-                _SNOW, entity_id, self._read_snow_albedo, None, now, status
+            snow, _origin = self._resolve(
+                _SNOW, entity_id, self._read_snow, None, now, status
             )
         except InputError:
             return self.settings.ground_albedo
-        return albedo
+        return SNOW_ALBEDO if snow > 0 else self.settings.ground_albedo
 
     # ------------------------------------------------------------- calculation
 
@@ -646,6 +867,7 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
         ghi, ghi_source = self._irradiance(elevation, now, status)
         albedo = self._albedo(now, status)
         self._report(status)
+        self._store.async_delay_save(self._holds_to_save, SAVE_DELAY)
         held = tuple(status.held)
         backup = tuple(status.backup)
 
@@ -671,6 +893,9 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
                 albedo=albedo,
             )
         )
+        values = (result.shade, result.sun)
+        if not all(math.isfinite(v) for v in values if v is not None):
+            raise ArithmeticError(f"non-finite result (shade, sun) = {values}")
         return FeelsLikeData(
             result=result,
             error=None,
@@ -679,7 +904,12 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
             wind_10m=wind,
             irradiance=ghi,
             irradiance_source=ghi_source,
-            albedo=albedo if settings.sun_source != SUN_SOURCE_NONE else None,
+            albedo=albedo if settings.has_sun else None,
             held_inputs=held,
             backup_inputs=backup,
         )
+
+
+def holds_store(hass: HomeAssistant, entry_id: str) -> Store[dict[str, Any]]:
+    """Storage for the last good input values of one helper."""
+    return Store(hass, STORAGE_VERSION, f"{DOMAIN}.{entry_id}")

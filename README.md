@@ -73,10 +73,15 @@ to be clamped, and which inputs are currently substituted (`held_inputs`,
 
 Weather station sensors drop out now and then (Netatmo wind gauges are
 notorious). When any input (temperature, humidity, wind, sun or snow) becomes
-unavailable, disappears or reports an impossible value (e.g. 150 % humidity):
+unavailable, disappears or reports an impossible value (e.g. 150 % humidity,
+or more than 2000 W/m² of sunlight):
 
 1. Its **last good value** is used for the hold time (default 1 hour). The
-   entity is listed in the `held_inputs` attribute.
+   entity is listed in the `held_inputs` attribute. A held sun sensor value
+   is scaled with the sun's position, so a midday reading is not carried into
+   the evening. Last good values are saved, so the hold also bridges a
+   restart of Home Assistant (useful for stations that report only every few
+   minutes).
 2. After that, the **backup weather entity** (if set) takes over: its
    `temperature`, `humidity`, `wind_speed` (already at 10 m, so no mounting
    factor) and, for the sun, `cloud_coverage`. The entity is listed in
@@ -88,8 +93,17 @@ unavailable, disappears or reports an impossible value (e.g. 150 % humidity):
 
 When the sun is below the horizon a missing sun input does not matter: the
 sun sensor keeps working (equal to shade), with `irradiance_source: night`.
-Input problems are logged once when they start and once when they end, at
-*info* level when a backup is used or the hold time ran out.
+Humidity readings slightly above 100 % (common in fog, or with a calibration
+offset) count as 100 %; only values above 110 % are treated as glitches.
+Common unit spellings such as `W/m2`, `lux`, `%RH` and `ºC` are accepted.
+
+Input problems are logged once when they start and once when they end. They
+are logged at *info* level when a backup is used, the hold time ran out, or an
+input has been out for longer than the hold time (at least 10 minutes) without
+ever having had a value. They are logged at *warning* level for configuration
+problems, such as an unsupported unit or an input entity that has not existed
+for 10 minutes (renamed or deleted). A helper whose stored settings cannot be
+used (e.g. edited by hand) fails to set up and states the reason.
 
 ## Methods
 

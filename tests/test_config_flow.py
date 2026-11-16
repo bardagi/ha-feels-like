@@ -224,6 +224,39 @@ async def test_unit_validation(
     assert result["errors"] == {"base": error}
 
 
+@pytest.mark.parametrize(
+    ("sun_source", "sun_field", "unit"),
+    [
+        ("irradiance", "irradiance_entity", "W/m2"),
+        ("illuminance", "illuminance_entity", "lux"),
+    ],
+)
+async def test_unit_spelling_variants_are_accepted(
+    hass: HomeAssistant, sun_source: str, sun_field: str, unit: str
+) -> None:
+    hass.states.async_set("sensor.temp", "10", {"unit_of_measurement": "ºC"})
+    hass.states.async_set("sensor.hum", "80", {"unit_of_measurement": "%RH"})
+    hass.states.async_set("sensor.wind", "11", {"unit_of_measurement": "kph"})
+    hass.states.async_set("sensor.sun", "450", {"unit_of_measurement": unit})
+    result = await _start(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            "temperature_entity": "sensor.temp",
+            "humidity_entity": "sensor.hum",
+            "wind_entity": "sensor.wind",
+            "wind_mounting": "face_level",
+            "sun_source": sun_source,
+        },
+    )
+    assert result["step_id"] == "sun"
+    with patch(SETUP_PATH, return_value=True):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {sun_field: "sensor.sun", "ground_surface": "grass"}
+        )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
 async def test_options_flow_switch_method_drops_unused_settings(
     hass: HomeAssistant,
 ) -> None:

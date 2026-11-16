@@ -114,7 +114,8 @@ def test_erbs_split_components_are_physical(g: float, elev: float, doy: int) -> 
     comps = solar.erbs_split(g, elev, doy)
     assert comps.ghi >= 0
     assert 0 <= comps.kt <= 1
-    assert comps.dni >= 0
+    # The beam never exceeds the irradiance at the top of the atmosphere.
+    assert 0 <= comps.dni <= solar.SOLAR_CONSTANT * solar.eccentricity_factor(doy)
     assert -1e-9 <= comps.dhi <= comps.ghi + 1e-9
 
 

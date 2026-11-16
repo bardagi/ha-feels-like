@@ -100,16 +100,16 @@ def erbs_split(
         return IrradianceComponents(ghi=ghi, dhi=ghi, dni=0.0, kt=0.0)
 
     cos_zenith = math.cos(math.radians(zenith))
-    i0h = (
-        SOLAR_CONSTANT
-        * eccentricity_factor(day_of_year)
-        * max(cos_zenith, ERBS_MIN_COS_ZENITH)
-    )
+    i0 = SOLAR_CONSTANT * eccentricity_factor(day_of_year)
+    i0h = i0 * max(cos_zenith, ERBS_MIN_COS_ZENITH)
     kt = max(0.0, min(1.0, ghi / i0h))
     dhi = erbs_diffuse_fraction(kt) * ghi
 
     if zenith > ERBS_MAX_ZENITH:
         return IrradianceComponents(ghi=ghi, dhi=ghi, dni=0.0, kt=kt)
 
-    dni = (ghi - dhi) / cos_zenith
+    # A GHI too high for the sun's elevation (a wrongly scaled sensor, or a value
+    # held from earlier in the day) would give an unphysical beam at low sun;
+    # the beam can never exceed the irradiance at the top of the atmosphere.
+    dni = min((ghi - dhi) / cos_zenith, i0)
     return IrradianceComponents(ghi=ghi, dhi=dhi, dni=max(dni, 0.0), kt=kt)
