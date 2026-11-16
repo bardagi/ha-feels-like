@@ -225,7 +225,7 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
         """Recalculate when an input entity changes, throttled by the debouncer."""
 
         @callback
-        def _state_changed(event: Event[EventStateChangedData]) -> None:
+        def _state_changed(event: Event[EventStateChangedData]) -> None:  # noqa: ARG001
             self._input_debouncer.async_schedule_call()
 
         return async_track_state_change_event(

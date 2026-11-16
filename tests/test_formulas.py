@@ -351,5 +351,5 @@ def test_engine_classic_methods_have_no_sun(method: str, kwargs: dict) -> None:
 
 
 def test_engine_missing_required_input() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="requires"):
         compute(FeelsLikeInputs(method="utci", temperature=10, humidity=80))

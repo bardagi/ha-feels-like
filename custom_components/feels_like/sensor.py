@@ -207,7 +207,7 @@ class ThermalStressSensor(FeelsLikeEntity, SensorEntity):
     """UTCI thermal stress category."""
 
     _attr_device_class = SensorDeviceClass.ENUM
-    _attr_options = list(UTCI_CATEGORIES)
+    _attr_options = list(UTCI_CATEGORIES)  # noqa: RUF012 - HA entity attribute convention
     _attr_translation_key = "thermal_stress"
 
     def __init__(

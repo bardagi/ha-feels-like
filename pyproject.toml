@@ -34,7 +34,32 @@ target-version = "py313"
 line-length = 88
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP", "SIM"]
+select = [
+    "E", "F", "I", "B", "UP", "SIM",
+    "ASYNC",  # blocking calls in async code
+    "C4",     # comprehensions
+    "PT",     # pytest style
+    "RUF",
+    "PERF",
+    "PIE",
+    "RET",
+    "ARG",    # unused arguments
+    "PGH",
+    "T20",    # stray print/pprint
+    "FURB",
+    "S",      # bandit
+    "PLE", "PLW",
+]
+ignore = [
+    # Physics docstrings intentionally use Greek symbols (σ, α, γ).
+    "RUF001", "RUF002", "RUF003",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Asserts after `_state_value()` only narrow `state` for the type checker.
+"custom_components/feels_like/coordinator.py" = ["S101"]
+"tests/**" = ["S101", "S603", "ARG"]
+"scripts/**" = ["T20"]
 
 [tool.typos.default.extend-words]
 hass = "hass"  # Home Assistant's core object

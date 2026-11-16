@@ -89,7 +89,9 @@ async def test_utci_creates_sun_shade_and_stress(
     sun = hass.states.get("sensor.ute_sun")
     shade = hass.states.get("sensor.ute_shade")
     stress = hass.states.get("sensor.ute_thermal_stress")
-    assert sun is not None and shade is not None and stress is not None
+    assert sun is not None
+    assert shade is not None
+    assert stress is not None
 
     assert float(sun.state) > float(shade.state)
     assert sun.attributes["unit_of_measurement"] == "°C"
