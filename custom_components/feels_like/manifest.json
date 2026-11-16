@@ -1,6 +1,7 @@
 {
   "domain": "feels_like",
   "name": "Feels Like",
+  "categories": ["helpers.calculate_value", "weather_alerts"],
   "codeowners": ["@bardagi"],
   "config_flow": true,
   "dependencies": [],
