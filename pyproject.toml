@@ -37,7 +37,12 @@ addopts = [
     "--cov-report=term-missing:skip-covered",
 ]
 xfail_strict = true
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # Hypothesis' own register_random() call trips its refcount heuristic on
+    # Python 3.14; the PRNG is held by hypothesis itself, so this is a false positive.
+    "ignore:It looks like `register_random` was passed an object:hypothesis.errors.HypothesisWarning",
+]
 
 [tool.ruff]
 target-version = "py313"
