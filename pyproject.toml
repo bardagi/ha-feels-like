@@ -1,3 +1,29 @@
+[project]
+name = "ha-feels-like"
+version = "0.1.0"
+description = "Home Assistant helper that calculates a 'feels like' temperature."
+readme = "README.md"
+license = "MIT"
+# Dev environment only: current Home Assistant (and so pytest-homeassistant-custom-component)
+# requires >=3.14.2. The integration itself still targets py313 (see ruff / ty config).
+requires-python = ">=3.14.2"
+# Keep in sync with custom_components/feels_like/manifest.json "requirements".
+dependencies = ["thermofeel==2.3.0"]
+
+[dependency-groups]
+dev = [
+    "pytest-homeassistant-custom-component",
+    "pytest-cov",
+    "hypothesis",
+    "ruff",
+    "ty==0.0.104",
+    "prek>=0.5.11",
+]
+
+[tool.uv]
+# This is a Home Assistant custom component, not an installable package.
+package = false
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"

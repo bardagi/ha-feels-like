@@ -173,10 +173,18 @@ Classic formulas:
 
 ## Development
 
+Tooling is managed with [uv](https://docs.astral.sh/uv/); dependencies are locked in
+`uv.lock`.
+
 ```bash
-pip install -r requirements_test.txt
-pytest
+uv sync     # create .venv with the locked dev dependencies
+uv run pytest
 ```
+
+`pytest` needs Linux, macOS or WSL: Home Assistant does not run natively on Windows
+(it imports `fcntl`). Linting (`ruff`) works everywhere.
+On WSL, keep the virtualenv off the Windows mount for speed, e.g.
+`UV_PROJECT_ENVIRONMENT=~/.venvs/feels_like uv run pytest`.
 
 ### Translations
 
