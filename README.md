@@ -178,6 +178,18 @@ pip install -r requirements_test.txt
 pytest
 ```
 
+### Translations
+
+Do not edit `custom_components/feels_like/translations/*.json` directly. Edit
+`translations_src/<lang>.json` and run `python scripts/generate_translations.py`.
+Repeated strings are written once and reused with `"[%key:path::to::string%]"`
+(Home Assistant does not resolve these for custom integrations, so the generator
+expands them). `pytest` fails if the generated files are out of date or a source repeats
+a string.
+
+To regenerate automatically on commit, enable the tracked hook once per clone:
+`git config core.hooksPath .githooks`.
+
 ## License
 
 MIT
