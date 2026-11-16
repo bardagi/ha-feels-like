@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -30,6 +31,7 @@ from homeassistant.core import (
     State,
     callback,
 )
+from homeassistant.helpers.debounce import Debouncer
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
@@ -40,6 +42,7 @@ from .const import (
     CONF_HUMIDITY_ENTITY,
     CONF_LUX_PER_WM2,
     CONF_METHOD,
+    CONF_MIN_UPDATE_INTERVAL,
     CONF_SNOW_ENTITY,
     CONF_SUN_SOURCE,
     CONF_TEMPERATURE_ENTITY,
@@ -48,6 +51,7 @@ from .const import (
     CONF_WIND_MOUNTING,
     DEFAULT_GROUND_SURFACE,
     DEFAULT_LUX_PER_WM2,
+    DEFAULT_MIN_UPDATE_INTERVAL,
     DEFAULT_WIND_MOUNTING,
     DOMAIN,
     GROUND_ALBEDO,
@@ -96,6 +100,7 @@ class Settings:
     lux_per_wm2: float
     ground_albedo: float
     snow_entity: str | None
+    min_update_interval: float
 
     @classmethod
     def from_options(cls, options: Mapping[str, Any]) -> Settings:
@@ -132,6 +137,9 @@ class Settings:
             ],
             snow_entity=(
                 options.get(CONF_SNOW_ENTITY) if sun_source != SUN_SOURCE_NONE else None
+            ),
+            min_update_interval=float(
+                options.get(CONF_MIN_UPDATE_INTERVAL, DEFAULT_MIN_UPDATE_INTERVAL)
             ),
         )
 
@@ -171,11 +179,14 @@ def _state_value(state: State | None, entity_id: str) -> float:
     if state.state in _UNAVAILABLE_STATES:
         raise InputError(f"{entity_id} is {state.state}")
     try:
-        return float(state.state)
+        value = float(state.state)
     except ValueError as err:
         raise InputError(
             f"{entity_id} has non-numeric state '{state.state}'", config_problem=True
         ) from err
+    if not math.isfinite(value):
+        raise InputError(f"{entity_id} is {state.state}")
+    return value
 
 
 class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
@@ -185,6 +196,14 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialise the coordinator."""
+        self.settings = Settings.from_options(entry.options)
+        # Input changes run a refresh at once, then at most once per cooldown.
+        self._input_debouncer = Debouncer(
+            hass,
+            _LOGGER,
+            cooldown=self.settings.min_update_interval,
+            immediate=True,
+        )
         super().__init__(
             hass,
             _LOGGER,
@@ -192,22 +211,22 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
             name=f"{DOMAIN} {entry.title}",
             update_interval=timedelta(minutes=UPDATE_INTERVAL_MINUTES),
             always_update=False,
+            request_refresh_debouncer=self._input_debouncer,
         )
-        self.settings = Settings.from_options(entry.options)
         self._last_problem: str | None = None
         self._last_problem_warned = False
 
     async def _async_update_data(self) -> FeelsLikeData:
-        """Recalculate (called on schedule)."""
+        """Recalculate (on schedule and on throttled input changes)."""
         return self.calculate()
 
     @callback
     def async_track_inputs(self) -> CALLBACK_TYPE:
-        """Recalculate whenever an input entity changes."""
+        """Recalculate when an input entity changes, throttled by the debouncer."""
 
         @callback
         def _state_changed(event: Event[EventStateChangedData]) -> None:
-            self.async_set_updated_data(self.calculate())
+            self._input_debouncer.async_schedule_call()
 
         return async_track_state_change_event(
             self.hass, self.settings.tracked_entities, _state_changed
@@ -307,8 +326,17 @@ class FeelsLikeCoordinator(DataUpdateCoordinator[FeelsLikeData]):
                         f"{entity_id} has no cloud_coverage attribute",
                         config_problem=True,
                     )
+                try:
+                    cloud_pct = float(cloud)
+                except (TypeError, ValueError):
+                    cloud_pct = math.nan
+                if not math.isfinite(cloud_pct):
+                    raise InputError(
+                        f"{entity_id} has non-numeric cloud_coverage '{cloud}'",
+                        config_problem=True,
+                    )
                 clear = solar.haurwitz_clear_sky(elevation)
-                return solar.kasten_czeplak(clear, float(cloud)), "estimated"
+                return solar.kasten_czeplak(clear, cloud_pct), "estimated"
         except InputError as err:
             self._report_problem(f"sun input: {err}", err.config_problem)
             return None, None

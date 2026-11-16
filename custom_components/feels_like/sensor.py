@@ -11,6 +11,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -82,6 +83,15 @@ async def async_setup_entry(
         entities.append(FeelsLikeSensor(coordinator, entry, KIND_SUN, has_sun=True))
     if spec.has_stress_category:
         entities.append(ThermalStressSensor(coordinator, entry))
+
+    # Remove entities a previous configuration created but this one does not
+    # (e.g. the sun sensor after switching to a method without sun).
+    wanted = {entity.unique_id for entity in entities}
+    ent_reg = er.async_get(hass)
+    for reg_entry in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+        if reg_entry.domain == "sensor" and reg_entry.unique_id not in wanted:
+            ent_reg.async_remove(reg_entry.entity_id)
+
     async_add_entities(entities)
 
 

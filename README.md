@@ -40,7 +40,10 @@ then:
 
 1. **Name and method**: *Real feel (UTCI)* is recommended.
 2. **Sensors**: outdoor temperature, relative humidity and wind speed, plus
-   where your wind sensor is mounted and where sun data comes from.
+   where your wind sensor is mounted and where sun data comes from. *Minimum
+   time between updates* (10 s – 5 min, default 1 min) limits how often the
+   helper updates when input sensors report frequently: the first change is
+   applied at once, later changes within the window are combined.
 3. **Sun** (if chosen): the sun sensor or weather entity, the ground surface,
    and optionally a "snow on the ground" entity.
 

@@ -7,6 +7,7 @@ import pytest
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_time_changed,
@@ -66,6 +67,15 @@ def _float(hass: HomeAssistant, entity_id: str) -> float:
     return float(state.state)
 
 
+async def _advance(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory, seconds: float
+) -> None:
+    """Move time forward so a pending throttled update runs."""
+    freezer.tick(timedelta(seconds=seconds))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+
+
 async def test_utci_creates_sun_shade_and_stress(
     hass: HomeAssistant, freezer: FrozenDateTimeFactory
 ) -> None:
@@ -121,7 +131,7 @@ async def test_unavailable_input_and_recovery(
         assert hass.states.get(entity_id).state == STATE_UNAVAILABLE
 
     hass.states.async_set("sensor.temp", "12", {"unit_of_measurement": "°C"})
-    await hass.async_block_till_done()
+    await _advance(hass, freezer, 60)
     assert hass.states.get("sensor.ute_shade").state != STATE_UNAVAILABLE
 
 
@@ -294,9 +304,97 @@ async def test_config_problem_warns_once(
     assert warnings[0].levelname == "WARNING"
 
     hass.states.async_set("sensor.temp", "10", {"unit_of_measurement": "°C"})
-    await hass.async_block_till_done()
+    await _advance(hass, freezer, 60)
     assert hass.states.get("sensor.ute_shade").state != STATE_UNAVAILABLE
     assert any(
         "available again" in r.getMessage() and r.levelname == "INFO"
         for r in caplog.records
     )
+
+
+async def test_input_changes_are_throttled(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    """First change applies at once; later ones wait for the window to end."""
+    freezer.move_to(MIDNIGHT_JUNE)
+    _set_inputs(hass)
+    await _setup(hass, {**UTCI_OPTIONS, "min_update_interval": "30"})
+
+    hass.states.async_set("sensor.wind", "1", {"unit_of_measurement": "m/s"})
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.ute_shade").attributes[
+        "wind_speed_10m"
+    ] == pytest.approx(1.5)
+
+    hass.states.async_set("sensor.wind", "2", {"unit_of_measurement": "m/s"})
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.ute_shade").attributes[
+        "wind_speed_10m"
+    ] == pytest.approx(1.5)
+
+    await _advance(hass, freezer, 30)
+    assert hass.states.get("sensor.ute_shade").attributes[
+        "wind_speed_10m"
+    ] == pytest.approx(3.0)
+
+
+async def test_switching_method_removes_stale_entities(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(NOON_JUNE)
+    _set_inputs(hass)
+    entry = await _setup(hass, UTCI_OPTIONS)
+    ent_reg = er.async_get(hass)
+    primary = ent_reg.async_get_entity_id("sensor", DOMAIN, entry.entry_id)
+    assert primary is not None
+    assert ent_reg.async_get("sensor.ute_sun") is not None
+    assert ent_reg.async_get("sensor.ute_thermal_stress") is not None
+
+    hass.config_entries.async_update_entry(
+        entry,
+        options={
+            "name": "Ute",
+            "method": "heat_index",
+            "temperature_entity": "sensor.temp",
+            "humidity_entity": "sensor.hum",
+        },
+    )
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert ent_reg.async_get("sensor.ute_sun") is None
+    assert ent_reg.async_get("sensor.ute_thermal_stress") is None
+    assert ent_reg.async_get_entity_id("sensor", DOMAIN, entry.entry_id) == primary
+    assert hass.states.get(primary).state != STATE_UNAVAILABLE
+
+
+async def test_weather_non_numeric_cloud_coverage(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    freezer.move_to(NOON_JUNE)
+    _set_inputs(hass)
+    hass.states.async_set("weather.home", "sunny", {"cloud_coverage": "lots"})
+    await _setup(
+        hass,
+        {**UTCI_OPTIONS, "sun_source": "weather", "weather_entity": "weather.home"},
+    )
+    assert hass.states.get("sensor.ute_sun").state == STATE_UNAVAILABLE
+    assert hass.states.get("sensor.ute_shade").state != STATE_UNAVAILABLE
+    assert not [r for r in caplog.records if r.exc_info]
+    assert any("non-numeric cloud_coverage" in r.getMessage() for r in caplog.records)
+
+
+async def test_nan_input_is_unavailable(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(NOON_JUNE)
+    _set_inputs(hass, **{"sensor.temp": ("nan", "°C")})
+    await _setup(hass, UTCI_OPTIONS)
+    for entity_id in (
+        "sensor.ute_sun",
+        "sensor.ute_shade",
+        "sensor.ute_thermal_stress",
+    ):
+        assert hass.states.get(entity_id).state == STATE_UNAVAILABLE

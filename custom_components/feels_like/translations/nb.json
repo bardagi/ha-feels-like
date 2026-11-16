@@ -1,16 +1,16 @@
 {
-  "title": "Følt temperatur",
+  "title": "Opplevd temperatur",
   "config": {
     "step": {
       "user": {
-        "title": "Følt temperatur",
-        "description": "Velg hvordan følt temperatur beregnes. **Ekte følelse (UTCI)** modellerer hvordan været faktisk kjennes på huden utendørs (temperatur, luftfuktighet, vind og sol) og fungerer i alle klima. De andre metodene er klassiske indekser som mange værtjenester bruker, hver tilpasset et bestemt klima.",
+        "title": "Opplevd temperatur",
+        "description": "Velg hvordan opplevd temperatur («føles som») beregnes. **Mest realistisk (UTCI)** modellerer hvordan været faktisk kjennes på kroppen utendørs (temperatur, luftfuktighet, vind og sol) og fungerer i alle klima. De andre metodene er klassiske indekser som mange værtjenester bruker, hver tilpasset et bestemt klima.",
         "data": {
           "name": "Navn",
           "method": "Metode"
         },
         "data_description": {
-          "method": "UTCI anbefales. Velg en klassisk indeks for å matche en kjent værapp eller den gamle malen din."
+          "method": "UTCI anbefales. Velg en klassisk indeks hvis du vil få samme tall som en kjent værapp eller den gamle malen din."
         }
       },
       "sensors": {
@@ -20,15 +20,17 @@
           "temperature_entity": "Utetemperatur",
           "humidity_entity": "Relativ luftfuktighet ute",
           "wind_entity": "Vindhastighet",
-          "wind_mounting": "Montering av vindmåler",
-          "sun_source": "Soldata"
+          "wind_mounting": "Plassering av vindmåler",
+          "sun_source": "Soldata",
+          "min_update_interval": "Minste tid mellom oppdateringer"
         },
         "data_description": {
           "temperature_entity": "Lufttemperatur målt i skygge.",
           "humidity_entity": "Relativ luftfuktighet i %.",
-          "wind_entity": "Gjennomsnittlig vindhastighet (en glattet/filtrert sensor fungerer best).",
+          "wind_entity": "Gjennomsnittlig vindhastighet (en utjevnet/filtrert sensor fungerer best).",
           "wind_mounting": "Formlene forventer vind målt 10 m over åpent terreng. Vinden er svakere nær bakken, så den skaleres opp med en faktor basert på sensorhøyden.",
-          "sun_source": "Sol kan få det til å føles 5–15 °C varmere. Bruk en solstrålingssensor hvis du har en; ellers en lyssensor eller skydekket fra en værvarsel-entitet."
+          "sun_source": "Sol kan gjøre at det føles 5–15 °C varmere. Bruk en solstrålingssensor hvis du har en; ellers en lyssensor eller skydekket fra en værentitet.",
+          "min_update_interval": "Endringer i sensorene innenfor dette tidsrommet slås sammen til én oppdatering. Opplevd temperatur endrer seg sakte; lengre tid gir færre skrivinger til databasen."
         }
       },
       "sun": {
@@ -38,12 +40,12 @@
           "irradiance_entity": "Solstrålingssensor (W/m²)",
           "illuminance_entity": "Lyssensor (lx)",
           "lux_per_wm2": "Lux per W/m²",
-          "weather_entity": "Vær-entitet",
+          "weather_entity": "Værentitet",
           "ground_surface": "Underlag",
           "snow_entity": "Snø på bakken (valgfri)"
         },
         "data_description": {
-          "irradiance_entity": "Global solstråling mot en horisontal flate.",
+          "irradiance_entity": "Global solinnstråling mot en horisontal flate.",
           "illuminance_entity": "Utendørs lyssensor, konvertert til W/m². Billige sensorer kan gå i metning i sterk sol.",
           "lux_per_wm2": "Dagslys er omtrent 120 lx per W/m².",
           "weather_entity": "Solstyrken anslås ut fra solhøyden og entitetens skydekke.",
@@ -63,24 +65,24 @@
       }
     },
     "error": {
-      "temperature_unit": "Temperatursensoren rapporterer ikke en temperaturenhet.",
-      "humidity_unit": "Fuktighetssensoren må rapportere %.",
-      "wind_unit": "Vindsensoren rapporterer ikke en hastighetsenhet.",
-      "irradiance_unit": "Solstrålingssensoren må rapportere W/m².",
-      "illuminance_unit": "Lyssensoren må rapportere lx.",
-      "weather_cloud_coverage": "Denne vær-entiteten oppgir ikke skydekke."
+      "temperature_unit": "Temperatursensoren oppgir ikke en temperaturenhet.",
+      "humidity_unit": "Fuktighetssensoren må bruke enheten %.",
+      "wind_unit": "Vindsensoren oppgir ikke en hastighetsenhet.",
+      "irradiance_unit": "Solstrålingssensoren må bruke enheten W/m².",
+      "illuminance_unit": "Lyssensoren må bruke enheten lx.",
+      "weather_cloud_coverage": "Denne værentiteten oppgir ikke skydekke."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Følt temperatur",
+        "title": "Opplevd temperatur",
         "description": "Endre beregningsmetode.",
         "data": {
           "method": "Metode"
         },
         "data_description": {
-          "method": "UTCI anbefales. Velg en klassisk indeks for å matche en kjent værapp eller den gamle malen din."
+          "method": "UTCI anbefales. Velg en klassisk indeks hvis du vil få samme tall som en kjent værapp eller den gamle malen din."
         }
       },
       "sensors": {
@@ -90,15 +92,17 @@
           "temperature_entity": "Utetemperatur",
           "humidity_entity": "Relativ luftfuktighet ute",
           "wind_entity": "Vindhastighet",
-          "wind_mounting": "Montering av vindmåler",
-          "sun_source": "Soldata"
+          "wind_mounting": "Plassering av vindmåler",
+          "sun_source": "Soldata",
+          "min_update_interval": "Minste tid mellom oppdateringer"
         },
         "data_description": {
           "temperature_entity": "Lufttemperatur målt i skygge.",
           "humidity_entity": "Relativ luftfuktighet i %.",
-          "wind_entity": "Gjennomsnittlig vindhastighet (en glattet/filtrert sensor fungerer best).",
+          "wind_entity": "Gjennomsnittlig vindhastighet (en utjevnet/filtrert sensor fungerer best).",
           "wind_mounting": "Formlene forventer vind målt 10 m over åpent terreng. Vinden er svakere nær bakken, så den skaleres opp med en faktor basert på sensorhøyden.",
-          "sun_source": "Sol kan få det til å føles 5–15 °C varmere. Bruk en solstrålingssensor hvis du har en; ellers en lyssensor eller skydekket fra en værvarsel-entitet."
+          "sun_source": "Sol kan gjøre at det føles 5–15 °C varmere. Bruk en solstrålingssensor hvis du har en; ellers en lyssensor eller skydekket fra en værentitet.",
+          "min_update_interval": "Endringer i sensorene innenfor dette tidsrommet slås sammen til én oppdatering. Opplevd temperatur endrer seg sakte; lengre tid gir færre skrivinger til databasen."
         }
       },
       "sun": {
@@ -108,12 +112,12 @@
           "irradiance_entity": "Solstrålingssensor (W/m²)",
           "illuminance_entity": "Lyssensor (lx)",
           "lux_per_wm2": "Lux per W/m²",
-          "weather_entity": "Vær-entitet",
+          "weather_entity": "Værentitet",
           "ground_surface": "Underlag",
           "snow_entity": "Snø på bakken (valgfri)"
         },
         "data_description": {
-          "irradiance_entity": "Global solstråling mot en horisontal flate.",
+          "irradiance_entity": "Global solinnstråling mot en horisontal flate.",
           "illuminance_entity": "Utendørs lyssensor, konvertert til W/m². Billige sensorer kan gå i metning i sterk sol.",
           "lux_per_wm2": "Dagslys er omtrent 120 lx per W/m².",
           "weather_entity": "Solstyrken anslås ut fra solhøyden og entitetens skydekke.",
@@ -133,19 +137,19 @@
       }
     },
     "error": {
-      "temperature_unit": "Temperatursensoren rapporterer ikke en temperaturenhet.",
-      "humidity_unit": "Fuktighetssensoren må rapportere %.",
-      "wind_unit": "Vindsensoren rapporterer ikke en hastighetsenhet.",
-      "irradiance_unit": "Solstrålingssensoren må rapportere W/m².",
-      "illuminance_unit": "Lyssensoren må rapportere lx.",
-      "weather_cloud_coverage": "Denne vær-entiteten oppgir ikke skydekke."
+      "temperature_unit": "Temperatursensoren oppgir ikke en temperaturenhet.",
+      "humidity_unit": "Fuktighetssensoren må bruke enheten %.",
+      "wind_unit": "Vindsensoren oppgir ikke en hastighetsenhet.",
+      "irradiance_unit": "Solstrålingssensoren må bruke enheten W/m².",
+      "illuminance_unit": "Lyssensoren må bruke enheten lx.",
+      "weather_cloud_coverage": "Denne værentiteten oppgir ikke skydekke."
     }
   },
   "selector": {
     "method": {
       "options": {
-        "utci": "Ekte følelse (UTCI) – alle klima, inkluderer sol",
-        "bom": "Overskyet / kyst (BoM tilsynelatende temperatur) – skyet, vindfull kyst og tørr varme",
+        "utci": "Mest realistisk (UTCI) – alle klima, tar hensyn til sol",
+        "bom": "Overskyet / kyst (BoM tilsynelatende temperatur) – skyet vær, vindfulle kyster og tørr varme",
         "four_season": "Fire årstider (vindavkjøling ↔ tilsynelatende temperatur) – som mange værapper",
         "wind_chill": "Kaldt og vindfullt (vindavkjøling) – kalde vintre, fjellet",
         "heat_index": "Varmt og fuktig (NWS varmeindeks) – subtropiske somre",
@@ -177,6 +181,14 @@
         "light": "Lys belegning / sand",
         "snow": "Snø"
       }
+    },
+    "min_update_interval": {
+      "options": {
+        "10": "10 sekunder",
+        "30": "30 sekunder",
+        "60": "1 minutt",
+        "300": "5 minutter"
+      }
     }
   },
   "entity": {
@@ -186,7 +198,7 @@
           "method": {
             "name": "Metode",
             "state": {
-              "utci": "Ekte følelse (UTCI)",
+              "utci": "Mest realistisk (UTCI)",
               "bom": "Overskyet / kyst (BoM tilsynelatende temperatur)",
               "four_season": "Fire årstider (vindavkjøling ↔ tilsynelatende temperatur)",
               "wind_chill": "Kaldt og vindfullt (vindavkjøling)",
@@ -195,7 +207,7 @@
             }
           },
           "method_used": {
-            "name": "Formel brukt",
+            "name": "Brukt formel",
             "state": {
               "utci": "UTCI",
               "bom": "BoM tilsynelatende temperatur",
@@ -231,7 +243,7 @@
             }
           },
           "direct_irradiance": {
-            "name": "Direkte sol"
+            "name": "Direkte solstråling"
           },
           "diffuse_irradiance": {
             "name": "Diffus himmelstråling"
@@ -240,7 +252,7 @@
             "name": "Midlere strålingstemperatur"
           },
           "wind_speed_10m": {
-            "name": "Vindhastighet i 10 m"
+            "name": "Vindhastighet i 10 m høyde"
           },
           "vapour_pressure": {
             "name": "Damptrykk"
@@ -249,10 +261,10 @@
             "name": "Blandingsvekt"
           },
           "clamped": {
-            "name": "Inndata avgrenset"
+            "name": "Inndata begrenset"
           },
           "albedo": {
-            "name": "Bakkens refleksjon"
+            "name": "Bakkens refleksjonsevne"
           }
         }
       },
@@ -262,7 +274,7 @@
           "method": {
             "name": "Metode",
             "state": {
-              "utci": "Ekte følelse (UTCI)",
+              "utci": "Mest realistisk (UTCI)",
               "bom": "Overskyet / kyst (BoM tilsynelatende temperatur)",
               "four_season": "Fire årstider (vindavkjøling ↔ tilsynelatende temperatur)",
               "wind_chill": "Kaldt og vindfullt (vindavkjøling)",
@@ -271,7 +283,7 @@
             }
           },
           "method_used": {
-            "name": "Formel brukt",
+            "name": "Brukt formel",
             "state": {
               "utci": "UTCI",
               "bom": "BoM tilsynelatende temperatur",
@@ -307,7 +319,7 @@
             }
           },
           "direct_irradiance": {
-            "name": "Direkte sol"
+            "name": "Direkte solstråling"
           },
           "diffuse_irradiance": {
             "name": "Diffus himmelstråling"
@@ -316,7 +328,7 @@
             "name": "Midlere strålingstemperatur"
           },
           "wind_speed_10m": {
-            "name": "Vindhastighet i 10 m"
+            "name": "Vindhastighet i 10 m høyde"
           },
           "vapour_pressure": {
             "name": "Damptrykk"
@@ -325,10 +337,10 @@
             "name": "Blandingsvekt"
           },
           "clamped": {
-            "name": "Inndata avgrenset"
+            "name": "Inndata begrenset"
           },
           "albedo": {
-            "name": "Bakkens refleksjon"
+            "name": "Bakkens refleksjonsevne"
           }
         }
       },
@@ -338,7 +350,7 @@
           "method": {
             "name": "Metode",
             "state": {
-              "utci": "Ekte følelse (UTCI)",
+              "utci": "Mest realistisk (UTCI)",
               "bom": "Overskyet / kyst (BoM tilsynelatende temperatur)",
               "four_season": "Fire årstider (vindavkjøling ↔ tilsynelatende temperatur)",
               "wind_chill": "Kaldt og vindfullt (vindavkjøling)",
@@ -347,7 +359,7 @@
             }
           },
           "method_used": {
-            "name": "Formel brukt",
+            "name": "Brukt formel",
             "state": {
               "utci": "UTCI",
               "bom": "BoM tilsynelatende temperatur",
@@ -383,7 +395,7 @@
             }
           },
           "direct_irradiance": {
-            "name": "Direkte sol"
+            "name": "Direkte solstråling"
           },
           "diffuse_irradiance": {
             "name": "Diffus himmelstråling"
@@ -392,7 +404,7 @@
             "name": "Midlere strålingstemperatur"
           },
           "wind_speed_10m": {
-            "name": "Vindhastighet i 10 m"
+            "name": "Vindhastighet i 10 m høyde"
           },
           "vapour_pressure": {
             "name": "Damptrykk"
@@ -401,10 +413,10 @@
             "name": "Blandingsvekt"
           },
           "clamped": {
-            "name": "Inndata avgrenset"
+            "name": "Inndata begrenset"
           },
           "albedo": {
-            "name": "Bakkens refleksjon"
+            "name": "Bakkens refleksjonsevne"
           }
         }
       },

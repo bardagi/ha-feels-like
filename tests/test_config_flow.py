@@ -51,6 +51,7 @@ async def test_utci_with_irradiance(hass: HomeAssistant) -> None:
         "wind_entity",
         "wind_mounting",
         "sun_source",
+        "min_update_interval",
     }
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
@@ -82,6 +83,7 @@ async def test_utci_with_irradiance(hass: HomeAssistant) -> None:
         "wind_entity": "sensor.wind",
         "wind_mounting": "face_level",
         "sun_source": "irradiance",
+        "min_update_interval": "60",
         "irradiance_entity": "sensor.solar",
         "ground_surface": "grass",
     }
@@ -92,7 +94,11 @@ async def test_heat_index_needs_only_temperature_and_humidity(
     hass: HomeAssistant,
 ) -> None:
     result = await _start(hass, method="heat_index")
-    assert _fields(result) == {"temperature_entity", "humidity_entity"}
+    assert _fields(result) == {
+        "temperature_entity",
+        "humidity_entity",
+        "min_update_interval",
+    }
     with patch(SETUP_PATH, return_value=True):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
@@ -103,7 +109,12 @@ async def test_heat_index_needs_only_temperature_and_humidity(
 
 async def test_wind_chill_without_humidity(hass: HomeAssistant) -> None:
     result = await _start(hass, method="wind_chill")
-    assert _fields(result) == {"temperature_entity", "wind_entity", "wind_mounting"}
+    assert _fields(result) == {
+        "temperature_entity",
+        "wind_entity",
+        "wind_mounting",
+        "min_update_interval",
+    }
 
 
 async def test_custom_wind_factor_step(hass: HomeAssistant) -> None:
@@ -241,4 +252,5 @@ async def test_options_flow_switch_method_drops_unused_settings(
         "method": "heat_index",
         "temperature_entity": "sensor.temp",
         "humidity_entity": "sensor.hum",
+        "min_update_interval": "60",
     }

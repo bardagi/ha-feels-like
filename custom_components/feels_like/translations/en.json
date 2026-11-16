@@ -21,14 +21,16 @@
           "humidity_entity": "Outdoor relative humidity",
           "wind_entity": "Wind speed",
           "wind_mounting": "Wind sensor mounting",
-          "sun_source": "Sun data"
+          "sun_source": "Sun data",
+          "min_update_interval": "Minimum time between updates"
         },
         "data_description": {
           "temperature_entity": "Air temperature measured in the shade.",
           "humidity_entity": "Relative humidity in %.",
           "wind_entity": "Average wind speed (a smoothed/filtered sensor works best).",
           "wind_mounting": "The formulas expect wind measured 10 m above open ground. Wind is weaker near the ground, so it is scaled up by a factor based on the sensor height.",
-          "sun_source": "Sun can make it feel 5–15 °C warmer. Use a solar radiation sensor if you have one; otherwise a light sensor or the cloud cover from a weather forecast entity."
+          "sun_source": "Sun can make it feel 5–15 °C warmer. Use a solar radiation sensor if you have one; otherwise a light sensor or the cloud cover from a weather forecast entity.",
+          "min_update_interval": "Input changes within this window are combined into one update. Feels-like changes slowly; longer windows mean fewer database writes."
         }
       },
       "sun": {
@@ -91,14 +93,16 @@
           "humidity_entity": "Outdoor relative humidity",
           "wind_entity": "Wind speed",
           "wind_mounting": "Wind sensor mounting",
-          "sun_source": "Sun data"
+          "sun_source": "Sun data",
+          "min_update_interval": "Minimum time between updates"
         },
         "data_description": {
           "temperature_entity": "Air temperature measured in the shade.",
           "humidity_entity": "Relative humidity in %.",
           "wind_entity": "Average wind speed (a smoothed/filtered sensor works best).",
           "wind_mounting": "The formulas expect wind measured 10 m above open ground. Wind is weaker near the ground, so it is scaled up by a factor based on the sensor height.",
-          "sun_source": "Sun can make it feel 5–15 °C warmer. Use a solar radiation sensor if you have one; otherwise a light sensor or the cloud cover from a weather forecast entity."
+          "sun_source": "Sun can make it feel 5–15 °C warmer. Use a solar radiation sensor if you have one; otherwise a light sensor or the cloud cover from a weather forecast entity.",
+          "min_update_interval": "Input changes within this window are combined into one update. Feels-like changes slowly; longer windows mean fewer database writes."
         }
       },
       "sun": {
@@ -176,6 +180,14 @@
         "urban": "Asphalt / urban",
         "light": "Light paving / sand",
         "snow": "Snow"
+      }
+    },
+    "min_update_interval": {
+      "options": {
+        "10": "10 seconds",
+        "30": "30 seconds",
+        "60": "1 minute",
+        "300": "5 minutes"
       }
     }
   },

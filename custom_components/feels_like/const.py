@@ -94,3 +94,8 @@ ATTR_UTCI: Final = "utci"
 ATTR_BASED_ON: Final = "based_on"
 
 UPDATE_INTERVAL_MINUTES: Final = 5
+
+# Input changes within this window (seconds) are merged into one update.
+CONF_MIN_UPDATE_INTERVAL: Final = "min_update_interval"
+MIN_UPDATE_INTERVALS: Final = ("10", "30", "60", "300")
+DEFAULT_MIN_UPDATE_INTERVAL: Final = "60"
