@@ -1,0 +1,440 @@
+{
+  "title": "Følt temperatur",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Følt temperatur",
+        "description": "Velg hvordan følt temperatur beregnes. **Ekte følelse (UTCI)** modellerer hvordan været faktisk kjennes på huden utendørs (temperatur, luftfuktighet, vind og sol) og fungerer i alle klima. De andre metodene er klassiske indekser som mange værtjenester bruker, hver tilpasset et bestemt klima.",
+        "data": {
+          "name": "Navn",
+          "method": "Metode"
+        },
+        "data_description": {
+          "method": "UTCI anbefales. Velg en klassisk indeks for å matche en kjent værapp eller den gamle malen din."
+        }
+      },
+      "sensors": {
+        "title": "Sensorer",
+        "description": "Velg sensorene som skal brukes. Enheter konverteres automatisk (°F, km/t, mph, knop …).",
+        "data": {
+          "temperature_entity": "Utetemperatur",
+          "humidity_entity": "Relativ luftfuktighet ute",
+          "wind_entity": "Vindhastighet",
+          "wind_mounting": "Montering av vindmåler",
+          "sun_source": "Soldata"
+        },
+        "data_description": {
+          "temperature_entity": "Lufttemperatur målt i skygge.",
+          "humidity_entity": "Relativ luftfuktighet i %.",
+          "wind_entity": "Gjennomsnittlig vindhastighet (en glattet/filtrert sensor fungerer best).",
+          "wind_mounting": "Formlene forventer vind målt 10 m over åpent terreng. Vinden er svakere nær bakken, så den skaleres opp med en faktor basert på sensorhøyden.",
+          "sun_source": "Sol kan få det til å føles 5–15 °C varmere. Bruk en solstrålingssensor hvis du har en; ellers en lyssensor eller skydekket fra en værvarsel-entitet."
+        }
+      },
+      "sun": {
+        "title": "Sol",
+        "description": "Sett opp soldata og underlaget rundt deg.",
+        "data": {
+          "irradiance_entity": "Solstrålingssensor (W/m²)",
+          "illuminance_entity": "Lyssensor (lx)",
+          "lux_per_wm2": "Lux per W/m²",
+          "weather_entity": "Vær-entitet",
+          "ground_surface": "Underlag",
+          "snow_entity": "Snø på bakken (valgfri)"
+        },
+        "data_description": {
+          "irradiance_entity": "Global solstråling mot en horisontal flate.",
+          "illuminance_entity": "Utendørs lyssensor, konvertert til W/m². Billige sensorer kan gå i metning i sterk sol.",
+          "lux_per_wm2": "Dagslys er omtrent 120 lx per W/m².",
+          "weather_entity": "Solstyrken anslås ut fra solhøyden og entitetens skydekke.",
+          "ground_surface": "Sollys som reflekteres fra bakken varmer også.",
+          "snow_entity": "En binærsensor/input boolean som er på, eller en snødybdesensor over 0, setter underlaget til snø (sterk refleksjon)."
+        }
+      },
+      "custom_wind": {
+        "title": "Egendefinert vindfaktor",
+        "description": "Faktor som omregner målt vind til vind 10 m over åpent terreng.",
+        "data": {
+          "wind_factor": "Vindfaktor"
+        },
+        "data_description": {
+          "wind_factor": "1,0 for en 10 m mast, 1,5 for vind målt i ansiktshøyde."
+        }
+      }
+    },
+    "error": {
+      "temperature_unit": "Temperatursensoren rapporterer ikke en temperaturenhet.",
+      "humidity_unit": "Fuktighetssensoren må rapportere %.",
+      "wind_unit": "Vindsensoren rapporterer ikke en hastighetsenhet.",
+      "irradiance_unit": "Solstrålingssensoren må rapportere W/m².",
+      "illuminance_unit": "Lyssensoren må rapportere lx.",
+      "weather_cloud_coverage": "Denne vær-entiteten oppgir ikke skydekke."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Følt temperatur",
+        "description": "Endre beregningsmetode.",
+        "data": {
+          "method": "Metode"
+        },
+        "data_description": {
+          "method": "UTCI anbefales. Velg en klassisk indeks for å matche en kjent værapp eller den gamle malen din."
+        }
+      },
+      "sensors": {
+        "title": "Sensorer",
+        "description": "Velg sensorene som skal brukes. Enheter konverteres automatisk (°F, km/t, mph, knop …).",
+        "data": {
+          "temperature_entity": "Utetemperatur",
+          "humidity_entity": "Relativ luftfuktighet ute",
+          "wind_entity": "Vindhastighet",
+          "wind_mounting": "Montering av vindmåler",
+          "sun_source": "Soldata"
+        },
+        "data_description": {
+          "temperature_entity": "Lufttemperatur målt i skygge.",
+          "humidity_entity": "Relativ luftfuktighet i %.",
+          "wind_entity": "Gjennomsnittlig vindhastighet (en glattet/filtrert sensor fungerer best).",
+          "wind_mounting": "Formlene forventer vind målt 10 m over åpent terreng. Vinden er svakere nær bakken, så den skaleres opp med en faktor basert på sensorhøyden.",
+          "sun_source": "Sol kan få det til å føles 5–15 °C varmere. Bruk en solstrålingssensor hvis du har en; ellers en lyssensor eller skydekket fra en værvarsel-entitet."
+        }
+      },
+      "sun": {
+        "title": "Sol",
+        "description": "Sett opp soldata og underlaget rundt deg.",
+        "data": {
+          "irradiance_entity": "Solstrålingssensor (W/m²)",
+          "illuminance_entity": "Lyssensor (lx)",
+          "lux_per_wm2": "Lux per W/m²",
+          "weather_entity": "Vær-entitet",
+          "ground_surface": "Underlag",
+          "snow_entity": "Snø på bakken (valgfri)"
+        },
+        "data_description": {
+          "irradiance_entity": "Global solstråling mot en horisontal flate.",
+          "illuminance_entity": "Utendørs lyssensor, konvertert til W/m². Billige sensorer kan gå i metning i sterk sol.",
+          "lux_per_wm2": "Dagslys er omtrent 120 lx per W/m².",
+          "weather_entity": "Solstyrken anslås ut fra solhøyden og entitetens skydekke.",
+          "ground_surface": "Sollys som reflekteres fra bakken varmer også.",
+          "snow_entity": "En binærsensor/input boolean som er på, eller en snødybdesensor over 0, setter underlaget til snø (sterk refleksjon)."
+        }
+      },
+      "custom_wind": {
+        "title": "Egendefinert vindfaktor",
+        "description": "Faktor som omregner målt vind til vind 10 m over åpent terreng.",
+        "data": {
+          "wind_factor": "Vindfaktor"
+        },
+        "data_description": {
+          "wind_factor": "1,0 for en 10 m mast, 1,5 for vind målt i ansiktshøyde."
+        }
+      }
+    },
+    "error": {
+      "temperature_unit": "Temperatursensoren rapporterer ikke en temperaturenhet.",
+      "humidity_unit": "Fuktighetssensoren må rapportere %.",
+      "wind_unit": "Vindsensoren rapporterer ikke en hastighetsenhet.",
+      "irradiance_unit": "Solstrålingssensoren må rapportere W/m².",
+      "illuminance_unit": "Lyssensoren må rapportere lx.",
+      "weather_cloud_coverage": "Denne vær-entiteten oppgir ikke skydekke."
+    }
+  },
+  "selector": {
+    "method": {
+      "options": {
+        "utci": "Ekte følelse (UTCI) – alle klima, inkluderer sol",
+        "bom": "Overskyet / kyst (BoM tilsynelatende temperatur) – skyet, vindfull kyst og tørr varme",
+        "four_season": "Fire årstider (vindavkjøling ↔ tilsynelatende temperatur) – som mange værapper",
+        "wind_chill": "Kaldt og vindfullt (vindavkjøling) – kalde vintre, fjellet",
+        "heat_index": "Varmt og fuktig (NWS varmeindeks) – subtropiske somre",
+        "humidex": "Varmt og fuktig (Humidex, Canada)"
+      }
+    },
+    "wind_mounting": {
+      "options": {
+        "mast_10m": "10 m mast (standard) ×1,00",
+        "rooftop_5m": "Tak, ca. 5 m ×1,14",
+        "pole_3m": "Stolpe, ca. 3 m ×1,26",
+        "garden_2m": "Hage, ca. 2 m ×1,38",
+        "face_level": "Ansiktshøyde, ca. 1,5 m ×1,50",
+        "custom": "Egendefinert faktor"
+      }
+    },
+    "sun_source": {
+      "options": {
+        "irradiance": "Solstrålingssensor (W/m²) – mest nøyaktig",
+        "illuminance": "Lyssensor (lx)",
+        "weather": "Anslå fra skydekket i værvarselet",
+        "none": "Ingen soldata (bare skygge)"
+      }
+    },
+    "ground_surface": {
+      "options": {
+        "grass": "Gress / vegetasjon",
+        "urban": "Asfalt / by",
+        "light": "Lys belegning / sand",
+        "snow": "Snø"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "feels_like": {
+        "state_attributes": {
+          "method": {
+            "name": "Metode",
+            "state": {
+              "utci": "Ekte følelse (UTCI)",
+              "bom": "Overskyet / kyst (BoM tilsynelatende temperatur)",
+              "four_season": "Fire årstider (vindavkjøling ↔ tilsynelatende temperatur)",
+              "wind_chill": "Kaldt og vindfullt (vindavkjøling)",
+              "heat_index": "Varmt og fuktig (NWS varmeindeks)",
+              "humidex": "Varmt og fuktig (Humidex, Canada)"
+            }
+          },
+          "method_used": {
+            "name": "Formel brukt",
+            "state": {
+              "utci": "UTCI",
+              "bom": "BoM tilsynelatende temperatur",
+              "wind_chill": "Vindavkjøling",
+              "air_temperature": "Lufttemperatur",
+              "heat_index": "Varmeindeks",
+              "humidex": "Humidex",
+              "blend_wind_chill_bom": "Blanding av vindavkjøling og tilsynelatende temperatur",
+              "blend_air_temperature_bom": "Blanding av lufttemperatur og tilsynelatende temperatur"
+            }
+          },
+          "season": {
+            "name": "Årstid",
+            "state": {
+              "winter": "Vinter",
+              "spring": "Vår",
+              "summer": "Sommer",
+              "autumn": "Høst"
+            }
+          },
+          "solar_elevation": {
+            "name": "Solhøyde"
+          },
+          "irradiance": {
+            "name": "Solstråling"
+          },
+          "irradiance_source": {
+            "name": "Kilde for solstråling",
+            "state": {
+              "sensor": "Sensor",
+              "illuminance": "Lyssensor",
+              "estimated": "Anslått"
+            }
+          },
+          "direct_irradiance": {
+            "name": "Direkte sol"
+          },
+          "diffuse_irradiance": {
+            "name": "Diffus himmelstråling"
+          },
+          "mean_radiant_temperature": {
+            "name": "Midlere strålingstemperatur"
+          },
+          "wind_speed_10m": {
+            "name": "Vindhastighet i 10 m"
+          },
+          "vapour_pressure": {
+            "name": "Damptrykk"
+          },
+          "blend_weight": {
+            "name": "Blandingsvekt"
+          },
+          "clamped": {
+            "name": "Inndata avgrenset"
+          },
+          "albedo": {
+            "name": "Bakkens refleksjon"
+          }
+        }
+      },
+      "feels_like_shade": {
+        "name": "Skygge",
+        "state_attributes": {
+          "method": {
+            "name": "Metode",
+            "state": {
+              "utci": "Ekte følelse (UTCI)",
+              "bom": "Overskyet / kyst (BoM tilsynelatende temperatur)",
+              "four_season": "Fire årstider (vindavkjøling ↔ tilsynelatende temperatur)",
+              "wind_chill": "Kaldt og vindfullt (vindavkjøling)",
+              "heat_index": "Varmt og fuktig (NWS varmeindeks)",
+              "humidex": "Varmt og fuktig (Humidex, Canada)"
+            }
+          },
+          "method_used": {
+            "name": "Formel brukt",
+            "state": {
+              "utci": "UTCI",
+              "bom": "BoM tilsynelatende temperatur",
+              "wind_chill": "Vindavkjøling",
+              "air_temperature": "Lufttemperatur",
+              "heat_index": "Varmeindeks",
+              "humidex": "Humidex",
+              "blend_wind_chill_bom": "Blanding av vindavkjøling og tilsynelatende temperatur",
+              "blend_air_temperature_bom": "Blanding av lufttemperatur og tilsynelatende temperatur"
+            }
+          },
+          "season": {
+            "name": "Årstid",
+            "state": {
+              "winter": "Vinter",
+              "spring": "Vår",
+              "summer": "Sommer",
+              "autumn": "Høst"
+            }
+          },
+          "solar_elevation": {
+            "name": "Solhøyde"
+          },
+          "irradiance": {
+            "name": "Solstråling"
+          },
+          "irradiance_source": {
+            "name": "Kilde for solstråling",
+            "state": {
+              "sensor": "Sensor",
+              "illuminance": "Lyssensor",
+              "estimated": "Anslått"
+            }
+          },
+          "direct_irradiance": {
+            "name": "Direkte sol"
+          },
+          "diffuse_irradiance": {
+            "name": "Diffus himmelstråling"
+          },
+          "mean_radiant_temperature": {
+            "name": "Midlere strålingstemperatur"
+          },
+          "wind_speed_10m": {
+            "name": "Vindhastighet i 10 m"
+          },
+          "vapour_pressure": {
+            "name": "Damptrykk"
+          },
+          "blend_weight": {
+            "name": "Blandingsvekt"
+          },
+          "clamped": {
+            "name": "Inndata avgrenset"
+          },
+          "albedo": {
+            "name": "Bakkens refleksjon"
+          }
+        }
+      },
+      "feels_like_sun": {
+        "name": "Sol",
+        "state_attributes": {
+          "method": {
+            "name": "Metode",
+            "state": {
+              "utci": "Ekte følelse (UTCI)",
+              "bom": "Overskyet / kyst (BoM tilsynelatende temperatur)",
+              "four_season": "Fire årstider (vindavkjøling ↔ tilsynelatende temperatur)",
+              "wind_chill": "Kaldt og vindfullt (vindavkjøling)",
+              "heat_index": "Varmt og fuktig (NWS varmeindeks)",
+              "humidex": "Varmt og fuktig (Humidex, Canada)"
+            }
+          },
+          "method_used": {
+            "name": "Formel brukt",
+            "state": {
+              "utci": "UTCI",
+              "bom": "BoM tilsynelatende temperatur",
+              "wind_chill": "Vindavkjøling",
+              "air_temperature": "Lufttemperatur",
+              "heat_index": "Varmeindeks",
+              "humidex": "Humidex",
+              "blend_wind_chill_bom": "Blanding av vindavkjøling og tilsynelatende temperatur",
+              "blend_air_temperature_bom": "Blanding av lufttemperatur og tilsynelatende temperatur"
+            }
+          },
+          "season": {
+            "name": "Årstid",
+            "state": {
+              "winter": "Vinter",
+              "spring": "Vår",
+              "summer": "Sommer",
+              "autumn": "Høst"
+            }
+          },
+          "solar_elevation": {
+            "name": "Solhøyde"
+          },
+          "irradiance": {
+            "name": "Solstråling"
+          },
+          "irradiance_source": {
+            "name": "Kilde for solstråling",
+            "state": {
+              "sensor": "Sensor",
+              "illuminance": "Lyssensor",
+              "estimated": "Anslått"
+            }
+          },
+          "direct_irradiance": {
+            "name": "Direkte sol"
+          },
+          "diffuse_irradiance": {
+            "name": "Diffus himmelstråling"
+          },
+          "mean_radiant_temperature": {
+            "name": "Midlere strålingstemperatur"
+          },
+          "wind_speed_10m": {
+            "name": "Vindhastighet i 10 m"
+          },
+          "vapour_pressure": {
+            "name": "Damptrykk"
+          },
+          "blend_weight": {
+            "name": "Blandingsvekt"
+          },
+          "clamped": {
+            "name": "Inndata avgrenset"
+          },
+          "albedo": {
+            "name": "Bakkens refleksjon"
+          }
+        }
+      },
+      "thermal_stress": {
+        "name": "Termisk stress",
+        "state": {
+          "extreme_cold_stress": "Ekstremt kuldestress",
+          "very_strong_cold_stress": "Svært sterkt kuldestress",
+          "strong_cold_stress": "Sterkt kuldestress",
+          "moderate_cold_stress": "Moderat kuldestress",
+          "slight_cold_stress": "Lett kuldestress",
+          "no_thermal_stress": "Ingen termisk stress",
+          "moderate_heat_stress": "Moderat varmestress",
+          "strong_heat_stress": "Sterkt varmestress",
+          "very_strong_heat_stress": "Svært sterkt varmestress",
+          "extreme_heat_stress": "Ekstremt varmestress"
+        },
+        "state_attributes": {
+          "utci": {
+            "name": "UTCI"
+          },
+          "based_on": {
+            "name": "Basert på",
+            "state": {
+              "sun": "Sol",
+              "shade": "Skygge"
+            }
+          }
+        }
+      }
+    }
+  }
+}

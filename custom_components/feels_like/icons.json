@@ -1,0 +1,30 @@
+{
+  "entity": {
+    "sensor": {
+      "feels_like": {
+        "default": "mdi:thermometer-lines"
+      },
+      "feels_like_shade": {
+        "default": "mdi:thermometer-lines"
+      },
+      "feels_like_sun": {
+        "default": "mdi:sun-thermometer"
+      },
+      "thermal_stress": {
+        "default": "mdi:account-alert",
+        "state": {
+          "extreme_cold_stress": "mdi:snowflake-alert",
+          "very_strong_cold_stress": "mdi:snowflake-alert",
+          "strong_cold_stress": "mdi:snowflake-thermometer",
+          "moderate_cold_stress": "mdi:snowflake-thermometer",
+          "slight_cold_stress": "mdi:snowflake",
+          "no_thermal_stress": "mdi:emoticon-happy-outline",
+          "moderate_heat_stress": "mdi:sun-thermometer-outline",
+          "strong_heat_stress": "mdi:sun-thermometer",
+          "very_strong_heat_stress": "mdi:fire-alert",
+          "extreme_heat_stress": "mdi:fire-alert"
+        }
+      }
+    }
+  }
+}

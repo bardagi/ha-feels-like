@@ -1,0 +1,440 @@
+{
+  "title": "Feels Like",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Feels-like temperature",
+        "description": "Choose how the feels-like temperature is calculated. **Real feel (UTCI)** models how the weather actually feels on the skin outdoors (temperature, humidity, wind and sun) and works in every climate. The other methods are the classic indices many weather services use, each suited to a particular climate.",
+        "data": {
+          "name": "Name",
+          "method": "Method"
+        },
+        "data_description": {
+          "method": "UTCI is recommended. Pick a classic index to match a familiar weather app or your old template."
+        }
+      },
+      "sensors": {
+        "title": "Sensors",
+        "description": "Pick the sensors to use. Units are converted automatically (°F, km/h, mph, knots…).",
+        "data": {
+          "temperature_entity": "Outdoor temperature",
+          "humidity_entity": "Outdoor relative humidity",
+          "wind_entity": "Wind speed",
+          "wind_mounting": "Wind sensor mounting",
+          "sun_source": "Sun data"
+        },
+        "data_description": {
+          "temperature_entity": "Air temperature measured in the shade.",
+          "humidity_entity": "Relative humidity in %.",
+          "wind_entity": "Average wind speed (a smoothed/filtered sensor works best).",
+          "wind_mounting": "The formulas expect wind measured 10 m above open ground. Wind is weaker near the ground, so it is scaled up by a factor based on the sensor height.",
+          "sun_source": "Sun can make it feel 5–15 °C warmer. Use a solar radiation sensor if you have one; otherwise a light sensor or the cloud cover from a weather forecast entity."
+        }
+      },
+      "sun": {
+        "title": "Sun",
+        "description": "Configure the sun data and the ground around you.",
+        "data": {
+          "irradiance_entity": "Solar radiation sensor (W/m²)",
+          "illuminance_entity": "Light sensor (lx)",
+          "lux_per_wm2": "Lux per W/m²",
+          "weather_entity": "Weather entity",
+          "ground_surface": "Ground surface",
+          "snow_entity": "Snow on the ground (optional)"
+        },
+        "data_description": {
+          "irradiance_entity": "Global solar radiation on a horizontal surface.",
+          "illuminance_entity": "Outdoor light sensor, converted to W/m². Cheap sensors may saturate in bright sun.",
+          "lux_per_wm2": "Daylight is about 120 lx per W/m².",
+          "weather_entity": "The sun strength is estimated from the sun's position and the entity's cloud cover.",
+          "ground_surface": "Sunlight reflected from the ground also warms you.",
+          "snow_entity": "A binary sensor/input boolean that is on, or a snow depth sensor above 0, switches the ground to snow (strong reflection)."
+        }
+      },
+      "custom_wind": {
+        "title": "Custom wind factor",
+        "description": "Factor that converts the measured wind to the wind at 10 m above open ground.",
+        "data": {
+          "wind_factor": "Wind factor"
+        },
+        "data_description": {
+          "wind_factor": "1.0 for a 10 m mast, 1.5 for wind measured at face height."
+        }
+      }
+    },
+    "error": {
+      "temperature_unit": "The temperature sensor does not report a temperature unit.",
+      "humidity_unit": "The humidity sensor must report %.",
+      "wind_unit": "The wind sensor does not report a speed unit.",
+      "irradiance_unit": "The solar radiation sensor must report W/m².",
+      "illuminance_unit": "The light sensor must report lx.",
+      "weather_cloud_coverage": "This weather entity does not provide cloud coverage."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Feels-like temperature",
+        "description": "Change the calculation method.",
+        "data": {
+          "method": "Method"
+        },
+        "data_description": {
+          "method": "UTCI is recommended. Pick a classic index to match a familiar weather app or your old template."
+        }
+      },
+      "sensors": {
+        "title": "Sensors",
+        "description": "Pick the sensors to use. Units are converted automatically (°F, km/h, mph, knots…).",
+        "data": {
+          "temperature_entity": "Outdoor temperature",
+          "humidity_entity": "Outdoor relative humidity",
+          "wind_entity": "Wind speed",
+          "wind_mounting": "Wind sensor mounting",
+          "sun_source": "Sun data"
+        },
+        "data_description": {
+          "temperature_entity": "Air temperature measured in the shade.",
+          "humidity_entity": "Relative humidity in %.",
+          "wind_entity": "Average wind speed (a smoothed/filtered sensor works best).",
+          "wind_mounting": "The formulas expect wind measured 10 m above open ground. Wind is weaker near the ground, so it is scaled up by a factor based on the sensor height.",
+          "sun_source": "Sun can make it feel 5–15 °C warmer. Use a solar radiation sensor if you have one; otherwise a light sensor or the cloud cover from a weather forecast entity."
+        }
+      },
+      "sun": {
+        "title": "Sun",
+        "description": "Configure the sun data and the ground around you.",
+        "data": {
+          "irradiance_entity": "Solar radiation sensor (W/m²)",
+          "illuminance_entity": "Light sensor (lx)",
+          "lux_per_wm2": "Lux per W/m²",
+          "weather_entity": "Weather entity",
+          "ground_surface": "Ground surface",
+          "snow_entity": "Snow on the ground (optional)"
+        },
+        "data_description": {
+          "irradiance_entity": "Global solar radiation on a horizontal surface.",
+          "illuminance_entity": "Outdoor light sensor, converted to W/m². Cheap sensors may saturate in bright sun.",
+          "lux_per_wm2": "Daylight is about 120 lx per W/m².",
+          "weather_entity": "The sun strength is estimated from the sun's position and the entity's cloud cover.",
+          "ground_surface": "Sunlight reflected from the ground also warms you.",
+          "snow_entity": "A binary sensor/input boolean that is on, or a snow depth sensor above 0, switches the ground to snow (strong reflection)."
+        }
+      },
+      "custom_wind": {
+        "title": "Custom wind factor",
+        "description": "Factor that converts the measured wind to the wind at 10 m above open ground.",
+        "data": {
+          "wind_factor": "Wind factor"
+        },
+        "data_description": {
+          "wind_factor": "1.0 for a 10 m mast, 1.5 for wind measured at face height."
+        }
+      }
+    },
+    "error": {
+      "temperature_unit": "The temperature sensor does not report a temperature unit.",
+      "humidity_unit": "The humidity sensor must report %.",
+      "wind_unit": "The wind sensor does not report a speed unit.",
+      "irradiance_unit": "The solar radiation sensor must report W/m².",
+      "illuminance_unit": "The light sensor must report lx.",
+      "weather_cloud_coverage": "This weather entity does not provide cloud coverage."
+    }
+  },
+  "selector": {
+    "method": {
+      "options": {
+        "utci": "Real feel (UTCI) – all climates, includes sun",
+        "bom": "Overcast / maritime (BoM apparent temperature) – cloudy, windy coasts and dry heat",
+        "four_season": "Four seasons (wind chill ↔ apparent temperature) – like many weather apps",
+        "wind_chill": "Cold and windy (wind chill) – cold winters, mountains",
+        "heat_index": "Hot and humid (NWS heat index) – subtropical summers",
+        "humidex": "Hot and humid (Humidex, Canada)"
+      }
+    },
+    "wind_mounting": {
+      "options": {
+        "mast_10m": "10 m mast (standard) ×1.00",
+        "rooftop_5m": "Rooftop, about 5 m ×1.14",
+        "pole_3m": "Pole, about 3 m ×1.26",
+        "garden_2m": "Garden, about 2 m ×1.38",
+        "face_level": "Face height, about 1.5 m ×1.50",
+        "custom": "Custom factor"
+      }
+    },
+    "sun_source": {
+      "options": {
+        "irradiance": "Solar radiation sensor (W/m²) – most accurate",
+        "illuminance": "Light sensor (lx)",
+        "weather": "Estimate from weather forecast cloud cover",
+        "none": "No sun data (shade only)"
+      }
+    },
+    "ground_surface": {
+      "options": {
+        "grass": "Grass / vegetation",
+        "urban": "Asphalt / urban",
+        "light": "Light paving / sand",
+        "snow": "Snow"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "feels_like": {
+        "state_attributes": {
+          "method": {
+            "name": "Method",
+            "state": {
+              "utci": "Real feel (UTCI)",
+              "bom": "Overcast / maritime (BoM apparent temperature)",
+              "four_season": "Four seasons (wind chill ↔ apparent temperature)",
+              "wind_chill": "Cold and windy (wind chill)",
+              "heat_index": "Hot and humid (NWS heat index)",
+              "humidex": "Hot and humid (Humidex, Canada)"
+            }
+          },
+          "method_used": {
+            "name": "Formula used",
+            "state": {
+              "utci": "UTCI",
+              "bom": "BoM apparent temperature",
+              "wind_chill": "Wind chill",
+              "air_temperature": "Air temperature",
+              "heat_index": "Heat index",
+              "humidex": "Humidex",
+              "blend_wind_chill_bom": "Blend of wind chill and apparent temperature",
+              "blend_air_temperature_bom": "Blend of air temperature and apparent temperature"
+            }
+          },
+          "season": {
+            "name": "Season",
+            "state": {
+              "winter": "Winter",
+              "spring": "Spring",
+              "summer": "Summer",
+              "autumn": "Autumn"
+            }
+          },
+          "solar_elevation": {
+            "name": "Solar elevation"
+          },
+          "irradiance": {
+            "name": "Solar radiation"
+          },
+          "irradiance_source": {
+            "name": "Solar radiation source",
+            "state": {
+              "sensor": "Sensor",
+              "illuminance": "Light sensor",
+              "estimated": "Estimated"
+            }
+          },
+          "direct_irradiance": {
+            "name": "Direct sun"
+          },
+          "diffuse_irradiance": {
+            "name": "Diffuse sky radiation"
+          },
+          "mean_radiant_temperature": {
+            "name": "Mean radiant temperature"
+          },
+          "wind_speed_10m": {
+            "name": "Wind speed at 10 m"
+          },
+          "vapour_pressure": {
+            "name": "Vapour pressure"
+          },
+          "blend_weight": {
+            "name": "Blend weight"
+          },
+          "clamped": {
+            "name": "Inputs clamped"
+          },
+          "albedo": {
+            "name": "Ground reflectivity"
+          }
+        }
+      },
+      "feels_like_shade": {
+        "name": "Shade",
+        "state_attributes": {
+          "method": {
+            "name": "Method",
+            "state": {
+              "utci": "Real feel (UTCI)",
+              "bom": "Overcast / maritime (BoM apparent temperature)",
+              "four_season": "Four seasons (wind chill ↔ apparent temperature)",
+              "wind_chill": "Cold and windy (wind chill)",
+              "heat_index": "Hot and humid (NWS heat index)",
+              "humidex": "Hot and humid (Humidex, Canada)"
+            }
+          },
+          "method_used": {
+            "name": "Formula used",
+            "state": {
+              "utci": "UTCI",
+              "bom": "BoM apparent temperature",
+              "wind_chill": "Wind chill",
+              "air_temperature": "Air temperature",
+              "heat_index": "Heat index",
+              "humidex": "Humidex",
+              "blend_wind_chill_bom": "Blend of wind chill and apparent temperature",
+              "blend_air_temperature_bom": "Blend of air temperature and apparent temperature"
+            }
+          },
+          "season": {
+            "name": "Season",
+            "state": {
+              "winter": "Winter",
+              "spring": "Spring",
+              "summer": "Summer",
+              "autumn": "Autumn"
+            }
+          },
+          "solar_elevation": {
+            "name": "Solar elevation"
+          },
+          "irradiance": {
+            "name": "Solar radiation"
+          },
+          "irradiance_source": {
+            "name": "Solar radiation source",
+            "state": {
+              "sensor": "Sensor",
+              "illuminance": "Light sensor",
+              "estimated": "Estimated"
+            }
+          },
+          "direct_irradiance": {
+            "name": "Direct sun"
+          },
+          "diffuse_irradiance": {
+            "name": "Diffuse sky radiation"
+          },
+          "mean_radiant_temperature": {
+            "name": "Mean radiant temperature"
+          },
+          "wind_speed_10m": {
+            "name": "Wind speed at 10 m"
+          },
+          "vapour_pressure": {
+            "name": "Vapour pressure"
+          },
+          "blend_weight": {
+            "name": "Blend weight"
+          },
+          "clamped": {
+            "name": "Inputs clamped"
+          },
+          "albedo": {
+            "name": "Ground reflectivity"
+          }
+        }
+      },
+      "feels_like_sun": {
+        "name": "Sun",
+        "state_attributes": {
+          "method": {
+            "name": "Method",
+            "state": {
+              "utci": "Real feel (UTCI)",
+              "bom": "Overcast / maritime (BoM apparent temperature)",
+              "four_season": "Four seasons (wind chill ↔ apparent temperature)",
+              "wind_chill": "Cold and windy (wind chill)",
+              "heat_index": "Hot and humid (NWS heat index)",
+              "humidex": "Hot and humid (Humidex, Canada)"
+            }
+          },
+          "method_used": {
+            "name": "Formula used",
+            "state": {
+              "utci": "UTCI",
+              "bom": "BoM apparent temperature",
+              "wind_chill": "Wind chill",
+              "air_temperature": "Air temperature",
+              "heat_index": "Heat index",
+              "humidex": "Humidex",
+              "blend_wind_chill_bom": "Blend of wind chill and apparent temperature",
+              "blend_air_temperature_bom": "Blend of air temperature and apparent temperature"
+            }
+          },
+          "season": {
+            "name": "Season",
+            "state": {
+              "winter": "Winter",
+              "spring": "Spring",
+              "summer": "Summer",
+              "autumn": "Autumn"
+            }
+          },
+          "solar_elevation": {
+            "name": "Solar elevation"
+          },
+          "irradiance": {
+            "name": "Solar radiation"
+          },
+          "irradiance_source": {
+            "name": "Solar radiation source",
+            "state": {
+              "sensor": "Sensor",
+              "illuminance": "Light sensor",
+              "estimated": "Estimated"
+            }
+          },
+          "direct_irradiance": {
+            "name": "Direct sun"
+          },
+          "diffuse_irradiance": {
+            "name": "Diffuse sky radiation"
+          },
+          "mean_radiant_temperature": {
+            "name": "Mean radiant temperature"
+          },
+          "wind_speed_10m": {
+            "name": "Wind speed at 10 m"
+          },
+          "vapour_pressure": {
+            "name": "Vapour pressure"
+          },
+          "blend_weight": {
+            "name": "Blend weight"
+          },
+          "clamped": {
+            "name": "Inputs clamped"
+          },
+          "albedo": {
+            "name": "Ground reflectivity"
+          }
+        }
+      },
+      "thermal_stress": {
+        "name": "Thermal stress",
+        "state": {
+          "extreme_cold_stress": "Extreme cold stress",
+          "very_strong_cold_stress": "Very strong cold stress",
+          "strong_cold_stress": "Strong cold stress",
+          "moderate_cold_stress": "Moderate cold stress",
+          "slight_cold_stress": "Slight cold stress",
+          "no_thermal_stress": "No thermal stress",
+          "moderate_heat_stress": "Moderate heat stress",
+          "strong_heat_stress": "Strong heat stress",
+          "very_strong_heat_stress": "Very strong heat stress",
+          "extreme_heat_stress": "Extreme heat stress"
+        },
+        "state_attributes": {
+          "utci": {
+            "name": "UTCI"
+          },
+          "based_on": {
+            "name": "Based on",
+            "state": {
+              "sun": "Sun",
+              "shade": "Shade"
+            }
+          }
+        }
+      }
+    }
+  }
+}

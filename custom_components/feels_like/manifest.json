@@ -1,0 +1,13 @@
+{
+  "domain": "feels_like",
+  "name": "Feels Like",
+  "codeowners": ["@bardagi"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/bardagi/ha-feels-like",
+  "integration_type": "helper",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/bardagi/ha-feels-like/issues",
+  "requirements": ["thermofeel==2.3.0"],
+  "version": "0.1.0"
+}
