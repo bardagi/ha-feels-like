@@ -99,3 +99,9 @@ UPDATE_INTERVAL_MINUTES: Final = 5
 CONF_MIN_UPDATE_INTERVAL: Final = "min_update_interval"
 MIN_UPDATE_INTERVALS: Final = ("10", "30", "60", "300")
 DEFAULT_MIN_UPDATE_INTERVAL: Final = "60"
+
+# Decimals in the feels-like state. The models are only good to about a degree,
+# so whole degrees are the default; one decimal is available on request.
+CONF_PRECISION: Final = "precision"
+PRECISIONS: Final = ("0", "1")
+DEFAULT_PRECISION: Final = "0"

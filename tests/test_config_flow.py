@@ -52,6 +52,7 @@ async def test_utci_with_irradiance(hass: HomeAssistant) -> None:
         "wind_mounting",
         "sun_source",
         "min_update_interval",
+        "precision",
     }
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
@@ -84,6 +85,7 @@ async def test_utci_with_irradiance(hass: HomeAssistant) -> None:
         "wind_mounting": "face_level",
         "sun_source": "irradiance",
         "min_update_interval": "60",
+        "precision": "0",
         "irradiance_entity": "sensor.solar",
         "ground_surface": "grass",
     }
@@ -98,6 +100,7 @@ async def test_heat_index_needs_only_temperature_and_humidity(
         "temperature_entity",
         "humidity_entity",
         "min_update_interval",
+        "precision",
     }
     with patch(SETUP_PATH, return_value=True):
         result = await hass.config_entries.flow.async_configure(
@@ -114,6 +117,7 @@ async def test_wind_chill_without_humidity(hass: HomeAssistant) -> None:
         "wind_entity",
         "wind_mounting",
         "min_update_interval",
+        "precision",
     }
 
 
@@ -253,4 +257,5 @@ async def test_options_flow_switch_method_drops_unused_settings(
         "temperature_entity": "sensor.temp",
         "humidity_entity": "sensor.hum",
         "min_update_interval": "60",
+        "precision": "0",
     }

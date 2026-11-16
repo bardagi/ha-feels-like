@@ -34,6 +34,8 @@ from .const import (
     ATTR_UTCI,
     ATTR_VAPOUR_PRESSURE,
     ATTR_WIND_SPEED_10M,
+    CONF_PRECISION,
+    DEFAULT_PRECISION,
     DOMAIN,
     METHOD_SPECS,
     SUN_SOURCE_NONE,
@@ -123,7 +125,6 @@ class FeelsLikeSensor(FeelsLikeEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.TEMPERATURE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
-    _attr_suggested_display_precision = 1
 
     def __init__(
         self,
@@ -136,6 +137,8 @@ class FeelsLikeSensor(FeelsLikeEntity, SensorEntity):
         """Initialise the sensor."""
         super().__init__(coordinator, entry)
         self._kind = kind
+        self._precision = int(entry.options.get(CONF_PRECISION, DEFAULT_PRECISION))
+        self._attr_suggested_display_precision = self._precision
         if kind == KIND_SUN:
             self._attr_unique_id = f"{entry.entry_id}_sun"
             self._attr_translation_key = "feels_like_sun"
@@ -165,7 +168,10 @@ class FeelsLikeSensor(FeelsLikeEntity, SensorEntity):
     @property
     def native_value(self) -> float | None:
         """Return the feels-like temperature."""
-        return _round(self._value())
+        value = self._value()
+        if value is None:
+            return None
+        return round(value) if self._precision == 0 else round(value, self._precision)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:

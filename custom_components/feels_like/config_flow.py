@@ -34,6 +34,7 @@ from .const import (
     CONF_LUX_PER_WM2,
     CONF_METHOD,
     CONF_MIN_UPDATE_INTERVAL,
+    CONF_PRECISION,
     CONF_SNOW_ENTITY,
     CONF_SUN_SOURCE,
     CONF_TEMPERATURE_ENTITY,
@@ -46,12 +47,14 @@ from .const import (
     DEFAULT_METHOD,
     DEFAULT_MIN_UPDATE_INTERVAL,
     DEFAULT_NAME,
+    DEFAULT_PRECISION,
     DEFAULT_WIND_MOUNTING,
     DOMAIN,
     GROUND_ALBEDO,
     METHOD_SPECS,
     METHODS,
     MIN_UPDATE_INTERVALS,
+    PRECISIONS,
     SUN_SOURCE_ENTITY_KEYS,
     SUN_SOURCE_ILLUMINANCE,
     SUN_SOURCE_IRRADIANCE,
@@ -138,6 +141,9 @@ async def _sensors_schema(handler: SchemaCommonFlowHandler) -> vol.Schema:
     schema[
         vol.Required(CONF_MIN_UPDATE_INTERVAL, default=DEFAULT_MIN_UPDATE_INTERVAL)
     ] = _select(list(MIN_UPDATE_INTERVALS), CONF_MIN_UPDATE_INTERVAL)
+    schema[vol.Required(CONF_PRECISION, default=DEFAULT_PRECISION)] = _select(
+        list(PRECISIONS), CONF_PRECISION
+    )
     return vol.Schema(schema)
 
 

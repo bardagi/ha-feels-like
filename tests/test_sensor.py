@@ -54,6 +54,9 @@ def _set_inputs(hass: HomeAssistant, **overrides: Any) -> None:
 
 
 async def _setup(hass: HomeAssistant, options: dict[str, Any]) -> MockConfigEntry:
+    # Most tests compare against the formulas, so they use one decimal; the
+    # integer default is covered by the precision tests below.
+    options = {"precision": "1", **options}
     entry = MockConfigEntry(domain=DOMAIN, title=options["name"], options=options)
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
@@ -98,7 +101,7 @@ async def test_utci_creates_sun_shade_and_stress(
     assert shade.attributes["wind_speed_10m"] == pytest.approx(4.5)
     assert stress.state in stress.attributes["options"]
     assert stress.attributes["based_on"] == "sun"
-    assert stress.attributes["utci"] == pytest.approx(float(sun.state), abs=0.01)
+    assert stress.attributes["utci"] == pytest.approx(float(sun.state), abs=0.05)
 
 
 async def test_unit_conversion(
@@ -110,7 +113,7 @@ async def test_unit_conversion(
     await _setup(hass, {**UTCI_OPTIONS, "sun_source": "none"})
 
     expected = utci(10, 80, 4.5, 10).value
-    assert _float(hass, "sensor.ute") == pytest.approx(expected, abs=0.01)
+    assert _float(hass, "sensor.ute") == pytest.approx(expected, abs=0.05)
 
 
 async def test_unavailable_input_and_recovery(
@@ -258,7 +261,7 @@ async def test_four_season_attributes(
     assert state.attributes["method_used"] == "blend_wind_chill_bom"
     assert state.attributes["blend_weight"] == 0.5
     assert float(state.state) == pytest.approx(
-        classic.four_season(12, 80, 4.5).value, abs=0.01
+        classic.four_season(12, 80, 4.5).value, abs=0.05
     )
 
 
@@ -398,3 +401,32 @@ async def test_nan_input_is_unavailable(
         "sensor.ute_thermal_stress",
     ):
         assert hass.states.get(entity_id).state == STATE_UNAVAILABLE
+
+
+async def test_default_precision_is_whole_degrees(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(NOON_JUNE)
+    _set_inputs(hass)
+    # Bypass _setup so the stored options have no precision (an older entry).
+    entry = MockConfigEntry(domain=DOMAIN, title="Ute", options=UTCI_OPTIONS)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    for entity_id in ("sensor.ute_sun", "sensor.ute_shade"):
+        state = hass.states.get(entity_id)
+        assert state is not None
+        assert state.state.lstrip("-").isdigit(), state.state
+
+
+async def test_one_decimal_precision(
+    hass: HomeAssistant, freezer: FrozenDateTimeFactory
+) -> None:
+    freezer.move_to(NOON_JUNE)
+    _set_inputs(hass)
+    await _setup(hass, {**UTCI_OPTIONS, "precision": "1"})
+    state = hass.states.get("sensor.ute_shade")
+    assert state is not None
+    assert float(state.state) == round(float(state.state), 1)
+    assert "." in state.state
