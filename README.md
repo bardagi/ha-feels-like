@@ -173,16 +173,18 @@ Classic formulas:
 
 ## Development
 
-Tooling is managed with [uv](https://docs.astral.sh/uv/); dependencies are locked in
-`uv.lock`.
+Tooling is managed with [uv](https://docs.astral.sh/uv/) (dependencies are locked in
+`uv.lock`) and [prek](https://github.com/j178/prek) for git hooks.
 
 ```bash
-uv sync     # create .venv with the locked dev dependencies
-uv run pytest
+uv sync                  # create .venv with the locked dev dependencies
+uv run prek install      # once per clone: run the checks on every commit
+uv run prek run --all-files   # ruff, ruff format, ty, typos, workflow lint, translations
+uv run pytest            # tests + coverage (fails below the threshold in pyproject.toml)
 ```
 
 `pytest` needs Linux, macOS or WSL: Home Assistant does not run natively on Windows
-(it imports `fcntl`). Linting (`ruff`) works everywhere.
+(it imports `fcntl`). Linting and type checking (`prek`, `ruff`, `ty`) work everywhere.
 On WSL, keep the virtualenv off the Windows mount for speed, e.g.
 `UV_PROJECT_ENVIRONMENT=~/.venvs/feels_like uv run pytest`.
 
@@ -195,8 +197,8 @@ Repeated strings are written once and reused with `"[%key:path::to::string%]"`
 expands them). `pytest` fails if the generated files are out of date or a source repeats
 a string.
 
-To regenerate automatically on commit, enable the tracked hook once per clone:
-`git config core.hooksPath .githooks`.
+The `prek` hook regenerates the translations when `translations_src/` changes. It
+modifies files, so the commit stops once; stage the regenerated files and commit again.
 
 ## License
 

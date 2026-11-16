@@ -35,3 +35,13 @@ line-length = 88
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.typos.default.extend-words]
+hass = "hass"  # Home Assistant's core object
+
+[tool.typos.files]
+# Norwegian text: typos only knows English.
+extend-exclude = [
+    "translations_src/nb.json",
+    "custom_components/feels_like/translations/nb.json",
+]
