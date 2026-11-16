@@ -17,6 +17,8 @@ from custom_components.feels_like.const import DOMAIN
 from custom_components.feels_like.formulas import classic
 from custom_components.feels_like.formulas.utci import utci
 
+from .helpers import state_of
+
 NOON_JUNE = "2026-06-21 11:00:00+00:00"  # ~13:00 local in Bergen
 MIDNIGHT_JUNE = "2026-06-21 23:00:00+00:00"
 
@@ -124,7 +126,7 @@ async def test_unavailable_input_and_recovery(
     freezer.move_to(NOON_JUNE)
     _set_inputs(hass)
     await _setup(hass, UTCI_OPTIONS)
-    assert hass.states.get("sensor.ute_shade").state != STATE_UNAVAILABLE
+    assert state_of(hass, "sensor.ute_shade").state != STATE_UNAVAILABLE
 
     hass.states.async_set("sensor.temp", STATE_UNAVAILABLE)
     await hass.async_block_till_done()
@@ -133,11 +135,11 @@ async def test_unavailable_input_and_recovery(
         "sensor.ute_shade",
         "sensor.ute_thermal_stress",
     ):
-        assert hass.states.get(entity_id).state == STATE_UNAVAILABLE
+        assert state_of(hass, entity_id).state == STATE_UNAVAILABLE
 
     hass.states.async_set("sensor.temp", "12", {"unit_of_measurement": "°C"})
     await _advance(hass, freezer, 60)
-    assert hass.states.get("sensor.ute_shade").state != STATE_UNAVAILABLE
+    assert state_of(hass, "sensor.ute_shade").state != STATE_UNAVAILABLE
 
 
 async def test_sun_sensor_unavailable_when_sun_input_missing(
@@ -149,11 +151,9 @@ async def test_sun_sensor_unavailable_when_sun_input_missing(
 
     hass.states.async_set("sensor.solar", STATE_UNAVAILABLE)
     await hass.async_block_till_done()
-    assert hass.states.get("sensor.ute_sun").state == STATE_UNAVAILABLE
-    assert hass.states.get("sensor.ute_shade").state != STATE_UNAVAILABLE
-    assert (
-        hass.states.get("sensor.ute_thermal_stress").attributes["based_on"] == "shade"
-    )
+    assert state_of(hass, "sensor.ute_sun").state == STATE_UNAVAILABLE
+    assert state_of(hass, "sensor.ute_shade").state != STATE_UNAVAILABLE
+    assert state_of(hass, "sensor.ute_thermal_stress").attributes["based_on"] == "shade"
 
 
 async def test_night_sun_equals_shade(
@@ -203,15 +203,15 @@ async def test_weather_cloud_cover_estimate(
             "weather_entity": "weather.home",
         },
     )
-    clear = hass.states.get("sensor.ute_sun").attributes["irradiance"]
+    clear = state_of(hass, "sensor.ute_sun").attributes["irradiance"]
     assert (
-        hass.states.get("sensor.ute_sun").attributes["irradiance_source"] == "estimated"
+        state_of(hass, "sensor.ute_sun").attributes["irradiance_source"] == "estimated"
     )
     assert clear > 600
 
     hass.states.async_set("weather.home", "cloudy", {"cloud_coverage": 100})
     await hass.async_block_till_done()
-    overcast = hass.states.get("sensor.ute_sun").attributes["irradiance"]
+    overcast = state_of(hass, "sensor.ute_sun").attributes["irradiance"]
     assert overcast == pytest.approx(0.25 * clear, rel=0.01)
 
 
@@ -231,14 +231,14 @@ async def test_illuminance_and_snow(
             "snow_entity": "input_boolean.snow",
         },
     )
-    sun = hass.states.get("sensor.ute_sun")
+    sun = state_of(hass, "sensor.ute_sun")
     assert sun.attributes["irradiance"] == pytest.approx(700)
     assert sun.attributes["albedo"] == 0.2
     no_snow = float(sun.state)
 
     hass.states.async_set("input_boolean.snow", "on")
     await hass.async_block_till_done()
-    sun = hass.states.get("sensor.ute_sun")
+    sun = state_of(hass, "sensor.ute_sun")
     assert sun.attributes["albedo"] == 0.7
     assert float(sun.state) > no_snow
 
@@ -259,7 +259,7 @@ async def test_four_season_attributes(
             "wind_mounting": "face_level",
         },
     )
-    state = hass.states.get("sensor.ute")
+    state = state_of(hass, "sensor.ute")
     assert state.attributes["method_used"] == "blend_wind_chill_bom"
     assert state.attributes["blend_weight"] == 0.5
     assert float(state.state) == pytest.approx(
@@ -273,12 +273,12 @@ async def test_periodic_refresh_follows_the_sun(
     freezer.move_to("2026-06-21 05:00:00+00:00")
     _set_inputs(hass)
     await _setup(hass, UTCI_OPTIONS)
-    before = hass.states.get("sensor.ute_sun").attributes["solar_elevation"]
+    before = state_of(hass, "sensor.ute_sun").attributes["solar_elevation"]
 
     freezer.tick(timedelta(minutes=30))
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
-    after = hass.states.get("sensor.ute_sun").attributes["solar_elevation"]
+    after = state_of(hass, "sensor.ute_sun").attributes["solar_elevation"]
     assert after > before
 
 
@@ -288,7 +288,7 @@ async def test_unload(hass: HomeAssistant, freezer: FrozenDateTimeFactory) -> No
     entry = await _setup(hass, UTCI_OPTIONS)
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
-    assert hass.states.get("sensor.ute_shade").state == STATE_UNAVAILABLE
+    assert state_of(hass, "sensor.ute_shade").state == STATE_UNAVAILABLE
 
 
 async def test_config_problem_warns_once(
@@ -300,7 +300,7 @@ async def test_config_problem_warns_once(
     freezer.move_to(NOON_JUNE)
     _set_inputs(hass, **{"sensor.temp": ("10", "W")})
     await _setup(hass, UTCI_OPTIONS)
-    assert hass.states.get("sensor.ute_shade").state == STATE_UNAVAILABLE
+    assert state_of(hass, "sensor.ute_shade").state == STATE_UNAVAILABLE
 
     hass.states.async_set("sensor.hum", "81", {"unit_of_measurement": "%"})
     await hass.async_block_till_done()
@@ -310,7 +310,7 @@ async def test_config_problem_warns_once(
 
     hass.states.async_set("sensor.temp", "10", {"unit_of_measurement": "°C"})
     await _advance(hass, freezer, 60)
-    assert hass.states.get("sensor.ute_shade").state != STATE_UNAVAILABLE
+    assert state_of(hass, "sensor.ute_shade").state != STATE_UNAVAILABLE
     assert any(
         "available again" in r.getMessage() and r.levelname == "INFO"
         for r in caplog.records
@@ -327,18 +327,18 @@ async def test_input_changes_are_throttled(
 
     hass.states.async_set("sensor.wind", "1", {"unit_of_measurement": "m/s"})
     await hass.async_block_till_done()
-    assert hass.states.get("sensor.ute_shade").attributes[
+    assert state_of(hass, "sensor.ute_shade").attributes[
         "wind_speed_10m"
     ] == pytest.approx(1.5)
 
     hass.states.async_set("sensor.wind", "2", {"unit_of_measurement": "m/s"})
     await hass.async_block_till_done()
-    assert hass.states.get("sensor.ute_shade").attributes[
+    assert state_of(hass, "sensor.ute_shade").attributes[
         "wind_speed_10m"
     ] == pytest.approx(1.5)
 
     await _advance(hass, freezer, 30)
-    assert hass.states.get("sensor.ute_shade").attributes[
+    assert state_of(hass, "sensor.ute_shade").attributes[
         "wind_speed_10m"
     ] == pytest.approx(3.0)
 
@@ -370,7 +370,7 @@ async def test_switching_method_removes_stale_entities(
     assert ent_reg.async_get("sensor.ute_sun") is None
     assert ent_reg.async_get("sensor.ute_thermal_stress") is None
     assert ent_reg.async_get_entity_id("sensor", DOMAIN, entry.entry_id) == primary
-    assert hass.states.get(primary).state != STATE_UNAVAILABLE
+    assert state_of(hass, primary).state != STATE_UNAVAILABLE
 
 
 async def test_weather_non_numeric_cloud_coverage(
@@ -385,8 +385,8 @@ async def test_weather_non_numeric_cloud_coverage(
         hass,
         {**UTCI_OPTIONS, "sun_source": "weather", "weather_entity": "weather.home"},
     )
-    assert hass.states.get("sensor.ute_sun").state == STATE_UNAVAILABLE
-    assert hass.states.get("sensor.ute_shade").state != STATE_UNAVAILABLE
+    assert state_of(hass, "sensor.ute_sun").state == STATE_UNAVAILABLE
+    assert state_of(hass, "sensor.ute_shade").state != STATE_UNAVAILABLE
     assert not [r for r in caplog.records if r.exc_info]
     assert any("non-numeric cloud_coverage" in r.getMessage() for r in caplog.records)
 
@@ -402,7 +402,7 @@ async def test_nan_input_is_unavailable(
         "sensor.ute_shade",
         "sensor.ute_thermal_stress",
     ):
-        assert hass.states.get(entity_id).state == STATE_UNAVAILABLE
+        assert state_of(hass, entity_id).state == STATE_UNAVAILABLE
 
 
 async def test_default_precision_is_whole_degrees(

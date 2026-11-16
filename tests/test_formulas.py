@@ -46,7 +46,9 @@ def test_bom_radiation_with_zero_q() -> None:
     [(-20, 5, -24), (-20, 30, -33)],  # Environment Canada / Wikipedia check values
 )
 def test_wind_chill_reference(t: float, v_kmh: float, expected: float) -> None:
-    assert round(classic.wind_chill_jagti(t, v_kmh / 3.6)) == expected
+    chill = classic.wind_chill_jagti(t, v_kmh / 3.6)
+    assert chill is not None
+    assert round(chill) == expected
 
 
 def test_wind_chill_undefined_outside_range() -> None:
@@ -329,6 +331,7 @@ def test_engine_bom_shade_is_template_and_sun_adds_direct_beam() -> None:
     )  # fmt: skip
     assert sunny.shade == pytest.approx(shade_only.shade)
     assert sunny.sun is not None
+    assert sunny.dni is not None
     expected_q = radiant.ALPHA_IR * radiant.projected_area_factor(45) * sunny.dni
     assert sunny.sun - sunny.shade == pytest.approx(0.70 * expected_q / 14.5)
 

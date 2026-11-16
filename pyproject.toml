@@ -61,6 +61,26 @@ ignore = [
 "tests/**" = ["S101", "S603", "ARG"]
 "scripts/**" = ["T20"]
 
+[tool.ty.environment]
+# Lowest Python the integration supports (hacs.json min HA 2025.6 -> 3.13).
+python-version = "3.13"
+
+[tool.ty.src]
+include = ["custom_components", "scripts", "tests"]
+
+# Home Assistant typing quirks (decorator-registered selector classes, metaclass
+# cached properties, SchemaFlowFormStep callable signature) that ty cannot model.
+[[tool.ty.overrides]]
+include = ["custom_components/feels_like/config_flow.py"]
+[tool.ty.overrides.rules]
+invalid-type-form = "ignore"
+invalid-argument-type = "ignore"
+
+[[tool.ty.overrides]]
+include = ["custom_components/feels_like/sensor.py"]
+[tool.ty.overrides.rules]
+incompatible-property-override = "ignore"
+
 [tool.typos.default.extend-words]
 hass = "hass"  # Home Assistant's core object
 

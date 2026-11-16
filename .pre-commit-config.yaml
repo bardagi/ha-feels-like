@@ -28,6 +28,12 @@ repos:
         language: system
         entry: uv run ruff format
         types_or: [python, pyi]
+      - id: ty
+        name: ty check
+        language: system
+        entry: uv run ty check
+        types: [python]
+        pass_filenames: false
       # Shipped translations are generated from translations_src; regenerating
       # modifies files, so the hook fails once and passes on re-run (like a formatter).
       - id: translations
