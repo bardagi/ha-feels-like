@@ -23,7 +23,9 @@
           "wind_mounting": "Wind sensor mounting",
           "sun_source": "Sun data",
           "min_update_interval": "Minimum time between updates",
-          "precision": "Precision"
+          "precision": "Precision",
+          "hold_time": "Keep last value when a sensor drops out",
+          "backup_weather_entity": "Backup weather entity (optional)"
         },
         "data_description": {
           "temperature_entity": "Air temperature measured in the shade.",
@@ -32,7 +34,9 @@
           "wind_mounting": "The formulas expect wind measured 10 m above open ground. Wind is weaker near the ground, so it is scaled up by a factor based on the sensor height.",
           "sun_source": "Sun can make it feel 5–15 °C warmer. Use a solar radiation sensor if you have one; otherwise a light sensor or the cloud cover from a weather forecast entity.",
           "min_update_interval": "Input changes within this window are combined into one update. Feels-like changes slowly; longer windows mean fewer database writes.",
-          "precision": "The models are only accurate to about a degree, so whole degrees are shown by default. Choose one decimal for finer steps."
+          "precision": "The models are only accurate to about a degree, so whole degrees are shown by default. Choose one decimal for finer steps.",
+          "hold_time": "If a sensor becomes unavailable or reports an impossible value, its last good value is used for this long. After that the backup weather entity takes over, or the helper becomes unavailable.",
+          "backup_weather_entity": "Used for temperature, humidity, wind and sun when a sensor has been out for longer than the time above. Forecast values can differ from your own sensors."
         }
       },
       "sun": {
@@ -143,6 +147,15 @@
         "60": "1 minute",
         "300": "5 minutes"
       }
+    },
+    "hold_time": {
+      "options": {
+        "0": "Off",
+        "900": "15 minutes",
+        "1800": "30 minutes",
+        "3600": "1 hour",
+        "10800": "3 hours"
+      }
     }
   },
   "entity": {
@@ -193,7 +206,8 @@
             "state": {
               "sensor": "Sensor",
               "illuminance": "Light sensor",
-              "estimated": "Estimated"
+              "estimated": "Estimated",
+              "night": "Sun below the horizon"
             }
           },
           "direct_irradiance": {
@@ -219,6 +233,12 @@
           },
           "albedo": {
             "name": "Ground reflectivity"
+          },
+          "held_inputs": {
+            "name": "Inputs using their last value"
+          },
+          "backup_inputs": {
+            "name": "Inputs from the backup weather entity"
           }
         }
       },
@@ -254,7 +274,9 @@
               "sun": "[%key:config::step::sun::title%]",
               "shade": "[%key:entity::sensor::feels_like_shade::name%]"
             }
-          }
+          },
+          "held_inputs": "[%key:entity::sensor::feels_like::state_attributes::held_inputs%]",
+          "backup_inputs": "[%key:entity::sensor::feels_like::state_attributes::backup_inputs%]"
         }
       }
     }

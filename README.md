@@ -45,7 +45,10 @@ then:
    helper updates when input sensors report frequently: the first change is
    applied at once, later changes within the window are combined. *Precision*
    is whole degrees by default (the models are only good to about a degree);
-   pick one decimal for finer steps.
+   pick one decimal for finer steps. *Keep last value when a sensor drops out*
+   (off – 3 h, default 1 h) and an optional *backup weather entity* keep the
+   helper working through flaky sensors (see
+   [Unreliable sensors](#unreliable-sensors)).
 3. **Sun** (if chosen): the sun sensor or weather entity, the ground surface,
    and optionally a "snow on the ground" entity.
 
@@ -62,12 +65,31 @@ Everything can be changed later with **Configure** on the helper.
 
 Attributes explain the calculation: method, formula used, season, solar
 elevation, solar radiation and its source, direct/diffuse radiation, mean
-radiant temperature, 10 m wind speed, vapour pressure, and whether inputs had
-to be clamped.
+radiant temperature, 10 m wind speed, vapour pressure, whether inputs had
+to be clamped, and which inputs are currently substituted (`held_inputs`,
+`backup_inputs`).
 
-If a required input is unavailable, the sensors become **unavailable** rather
-than showing a wrong value. If only the sun input is unavailable, the *sun*
-sensor becomes unavailable and the *shade* sensor keeps working.
+### Unreliable sensors
+
+Weather station sensors drop out now and then (Netatmo wind gauges are
+notorious). When any input (temperature, humidity, wind, sun or snow) becomes
+unavailable, disappears or reports an impossible value (e.g. 150 % humidity):
+
+1. Its **last good value** is used for the hold time (default 1 hour). The
+   entity is listed in the `held_inputs` attribute.
+2. After that, the **backup weather entity** (if set) takes over: its
+   `temperature`, `humidity`, `wind_speed` (already at 10 m, so no mounting
+   factor) and, for the sun, `cloud_coverage`. The entity is listed in
+   `backup_inputs`. Forecast values can differ from your own sensors.
+3. Only then do the sensors become **unavailable** rather than show a wrong
+   value. If only the sun input is out, just the *sun* sensor becomes
+   unavailable and the *shade* sensor keeps working. A missing snow entity
+   falls back to the configured ground surface.
+
+When the sun is below the horizon a missing sun input does not matter: the
+sun sensor keeps working (equal to shade), with `irradiance_source: night`.
+Input problems are logged once when they start and once when they end, at
+*info* level when a backup is used or the hold time ran out.
 
 ## Methods
 

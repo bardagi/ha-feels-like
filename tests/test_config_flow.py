@@ -53,6 +53,8 @@ async def test_utci_with_irradiance(hass: HomeAssistant) -> None:
         "sun_source",
         "min_update_interval",
         "precision",
+        "hold_time",
+        "backup_weather_entity",
     }
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
@@ -86,6 +88,7 @@ async def test_utci_with_irradiance(hass: HomeAssistant) -> None:
         "sun_source": "irradiance",
         "min_update_interval": "60",
         "precision": "0",
+        "hold_time": "3600",
         "irradiance_entity": "sensor.solar",
         "ground_surface": "grass",
     }
@@ -101,6 +104,8 @@ async def test_heat_index_needs_only_temperature_and_humidity(
         "humidity_entity",
         "min_update_interval",
         "precision",
+        "hold_time",
+        "backup_weather_entity",
     }
     with patch(SETUP_PATH, return_value=True):
         result = await hass.config_entries.flow.async_configure(
@@ -118,6 +123,8 @@ async def test_wind_chill_without_humidity(hass: HomeAssistant) -> None:
         "wind_mounting",
         "min_update_interval",
         "precision",
+        "hold_time",
+        "backup_weather_entity",
     }
 
 
@@ -258,4 +265,42 @@ async def test_options_flow_switch_method_drops_unused_settings(
         "humidity_entity": "sensor.hum",
         "min_update_interval": "60",
         "precision": "0",
+        "hold_time": "3600",
     }
+
+
+async def test_options_flow_sets_and_clears_backup_weather(
+    hass: HomeAssistant,
+) -> None:
+    options = {
+        "name": "Ute",
+        "method": "heat_index",
+        "temperature_entity": "sensor.temp",
+        "humidity_entity": "sensor.hum",
+    }
+    entry = MockConfigEntry(domain=DOMAIN, title="Ute", options=options)
+    entry.add_to_hass(hass)
+
+    async def _configure(sensors: dict[str, str]) -> None:
+        result = await hass.config_entries.options.async_init(entry.entry_id)
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], {"method": "heat_index"}
+        )
+        with patch(SETUP_PATH, return_value=True):
+            result = await hass.config_entries.options.async_configure(
+                result["flow_id"],
+                {
+                    "temperature_entity": "sensor.temp",
+                    "humidity_entity": "sensor.hum",
+                    **sensors,
+                },
+            )
+            await hass.async_block_till_done()
+        assert result["type"] is FlowResultType.CREATE_ENTRY
+
+    await _configure({"hold_time": "900", "backup_weather_entity": "weather.home"})
+    assert entry.options["hold_time"] == "900"
+    assert entry.options["backup_weather_entity"] == "weather.home"
+
+    await _configure({"hold_time": "900"})
+    assert "backup_weather_entity" not in entry.options

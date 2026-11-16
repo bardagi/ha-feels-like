@@ -30,6 +30,7 @@ CONF_LUX_PER_WM2: Final = "lux_per_wm2"
 CONF_WEATHER_ENTITY: Final = "weather_entity"
 CONF_GROUND_SURFACE: Final = "ground_surface"
 CONF_SNOW_ENTITY: Final = "snow_entity"
+CONF_BACKUP_WEATHER_ENTITY: Final = "backup_weather_entity"
 
 DEFAULT_NAME: Final = "Feels like"
 DEFAULT_METHOD: Final = METHOD_UTCI
@@ -92,6 +93,8 @@ ATTR_CLAMPED: Final = "clamped"
 ATTR_ALBEDO: Final = "albedo"
 ATTR_UTCI: Final = "utci"
 ATTR_BASED_ON: Final = "based_on"
+ATTR_HELD_INPUTS: Final = "held_inputs"
+ATTR_BACKUP_INPUTS: Final = "backup_inputs"
 
 UPDATE_INTERVAL_MINUTES: Final = 5
 
@@ -99,6 +102,12 @@ UPDATE_INTERVAL_MINUTES: Final = 5
 CONF_MIN_UPDATE_INTERVAL: Final = "min_update_interval"
 MIN_UPDATE_INTERVALS: Final = ("10", "30", "60", "300")
 DEFAULT_MIN_UPDATE_INTERVAL: Final = "60"
+
+# How long (seconds) the last good value of an input is kept when its sensor
+# drops out, before the backup weather entity (if any) takes over.
+CONF_HOLD_TIME: Final = "hold_time"
+HOLD_TIMES: Final = ("0", "900", "1800", "3600", "10800")
+DEFAULT_HOLD_TIME: Final = "3600"
 
 # Decimals in the feels-like state. The models are only good to about a degree,
 # so whole degrees are the default; one decimal is available on request.

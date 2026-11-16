@@ -19,11 +19,13 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import FeelsLikeConfigEntry
 from .const import (
     ATTR_ALBEDO,
+    ATTR_BACKUP_INPUTS,
     ATTR_BASED_ON,
     ATTR_BLEND_WEIGHT,
     ATTR_CLAMPED,
     ATTR_DIFFUSE_IRRADIANCE,
     ATTR_DIRECT_IRRADIANCE,
+    ATTR_HELD_INPUTS,
     ATTR_IRRADIANCE,
     ATTR_IRRADIANCE_SOURCE,
     ATTR_MEAN_RADIANT_TEMPERATURE,
@@ -65,6 +67,16 @@ _UNRECORDED = frozenset(
 
 def _round(value: float | None, digits: int = 2) -> float | None:
     return None if value is None else round(value, digits)
+
+
+def _substituted_inputs(data: FeelsLikeData) -> dict[str, list[str]]:
+    """Name the input entities that are out and what replaces them."""
+    attrs: dict[str, list[str]] = {}
+    if data.held_inputs:
+        attrs[ATTR_HELD_INPUTS] = list(data.held_inputs)
+    if data.backup_inputs:
+        attrs[ATTR_BACKUP_INPUTS] = list(data.backup_inputs)
+    return attrs
 
 
 async def async_setup_entry(
@@ -200,6 +212,7 @@ class FeelsLikeSensor(FeelsLikeEntity, SensorEntity):
             attrs[ATTR_DIFFUSE_IRRADIANCE] = _round(result.dhi, 1)
             attrs[ATTR_ALBEDO] = data.albedo
         attrs[ATTR_CLAMPED] = result.clamped
+        attrs.update(_substituted_inputs(data))
         return {key: value for key, value in attrs.items() if value is not None}
 
 
@@ -247,4 +260,5 @@ class ThermalStressSensor(FeelsLikeEntity, SensorEntity):
         return {
             ATTR_UTCI: _round(result.sun if based_on_sun else result.shade),
             ATTR_BASED_ON: "sun" if based_on_sun else "shade",
+            **_substituted_inputs(data),
         }

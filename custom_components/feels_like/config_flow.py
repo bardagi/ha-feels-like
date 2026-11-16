@@ -27,7 +27,9 @@ from homeassistant.helpers.schema_config_entry_flow import (
 from homeassistant.util.unit_conversion import SpeedConverter, TemperatureConverter
 
 from .const import (
+    CONF_BACKUP_WEATHER_ENTITY,
     CONF_GROUND_SURFACE,
+    CONF_HOLD_TIME,
     CONF_HUMIDITY_ENTITY,
     CONF_ILLUMINANCE_ENTITY,
     CONF_IRRADIANCE_ENTITY,
@@ -43,6 +45,7 @@ from .const import (
     CONF_WIND_FACTOR,
     CONF_WIND_MOUNTING,
     DEFAULT_GROUND_SURFACE,
+    DEFAULT_HOLD_TIME,
     DEFAULT_LUX_PER_WM2,
     DEFAULT_METHOD,
     DEFAULT_MIN_UPDATE_INTERVAL,
@@ -51,6 +54,7 @@ from .const import (
     DEFAULT_WIND_MOUNTING,
     DOMAIN,
     GROUND_ALBEDO,
+    HOLD_TIMES,
     METHOD_SPECS,
     METHODS,
     MIN_UPDATE_INTERVALS,
@@ -84,6 +88,10 @@ _IRRADIANCE_UNITS = (
 def _sensor_selector() -> selector.EntitySelector:
     # Filter on domain only: many filtered/template sensors lack a device class.
     return selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor"))
+
+
+def _weather_selector() -> selector.EntitySelector:
+    return selector.EntitySelector(selector.EntitySelectorConfig(domain="weather"))
 
 
 def _select(
@@ -144,6 +152,10 @@ async def _sensors_schema(handler: SchemaCommonFlowHandler) -> vol.Schema:
     schema[vol.Required(CONF_PRECISION, default=DEFAULT_PRECISION)] = _select(
         list(PRECISIONS), CONF_PRECISION
     )
+    schema[vol.Required(CONF_HOLD_TIME, default=DEFAULT_HOLD_TIME)] = _select(
+        list(HOLD_TIMES), CONF_HOLD_TIME
+    )
+    schema[vol.Optional(CONF_BACKUP_WEATHER_ENTITY)] = _weather_selector()
     return vol.Schema(schema)
 
 
@@ -233,9 +245,7 @@ async def _sun_schema(handler: SchemaCommonFlowHandler) -> vol.Schema:
             )
         )
     elif source == SUN_SOURCE_WEATHER:
-        schema[vol.Required(CONF_WEATHER_ENTITY)] = selector.EntitySelector(
-            selector.EntitySelectorConfig(domain="weather")
-        )
+        schema[vol.Required(CONF_WEATHER_ENTITY)] = _weather_selector()
     schema[vol.Required(CONF_GROUND_SURFACE, default=DEFAULT_GROUND_SURFACE)] = _select(
         list(GROUND_ALBEDO), CONF_GROUND_SURFACE
     )

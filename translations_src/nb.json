@@ -23,7 +23,9 @@
           "wind_mounting": "Plassering av vindmåler",
           "sun_source": "Soldata",
           "min_update_interval": "Minste tid mellom oppdateringer",
-          "precision": "Presisjon"
+          "precision": "Presisjon",
+          "hold_time": "Behold siste verdi når en sensor faller ut",
+          "backup_weather_entity": "Reserve-værentitet (valgfri)"
         },
         "data_description": {
           "temperature_entity": "Lufttemperatur målt i skygge.",
@@ -32,7 +34,9 @@
           "wind_mounting": "Formlene forventer vind målt 10 m over åpent terreng. Vinden er svakere nær bakken, så den skaleres opp med en faktor basert på sensorhøyden.",
           "sun_source": "Sol kan gjøre at det føles 5–15 °C varmere. Bruk en solstrålingssensor hvis du har en; ellers en lyssensor eller skydekket fra en værentitet.",
           "min_update_interval": "Endringer i sensorene innenfor dette tidsrommet slås sammen til én oppdatering. Opplevd temperatur endrer seg sakte; lengre tid gir færre skrivinger til databasen.",
-          "precision": "Modellene er bare nøyaktige til omtrent én grad, så hele grader vises som standard. Velg én desimal for finere steg."
+          "precision": "Modellene er bare nøyaktige til omtrent én grad, så hele grader vises som standard. Velg én desimal for finere steg.",
+          "hold_time": "Hvis en sensor blir utilgjengelig eller rapporterer en umulig verdi, brukes den siste gode verdien så lenge. Deretter tar reserve-værentiteten over, eller hjelperen blir utilgjengelig.",
+          "backup_weather_entity": "Brukes for temperatur, luftfuktighet, vind og sol når en sensor har vært borte lenger enn tiden over. Verdier fra værvarselet kan avvike fra dine egne sensorer."
         }
       },
       "sun": {
@@ -143,6 +147,15 @@
         "60": "1 minutt",
         "300": "5 minutter"
       }
+    },
+    "hold_time": {
+      "options": {
+        "0": "Av",
+        "900": "15 minutter",
+        "1800": "30 minutter",
+        "3600": "1 time",
+        "10800": "3 timer"
+      }
     }
   },
   "entity": {
@@ -193,7 +206,8 @@
             "state": {
               "sensor": "Sensor",
               "illuminance": "Lyssensor",
-              "estimated": "Anslått"
+              "estimated": "Anslått",
+              "night": "Solen er under horisonten"
             }
           },
           "direct_irradiance": {
@@ -219,6 +233,12 @@
           },
           "albedo": {
             "name": "Bakkens refleksjonsevne"
+          },
+          "held_inputs": {
+            "name": "Inndata som bruker siste verdi"
+          },
+          "backup_inputs": {
+            "name": "Inndata fra reserve-værentiteten"
           }
         }
       },
@@ -254,7 +274,9 @@
               "sun": "[%key:config::step::sun::title%]",
               "shade": "[%key:entity::sensor::feels_like_shade::name%]"
             }
-          }
+          },
+          "held_inputs": "[%key:entity::sensor::feels_like::state_attributes::held_inputs%]",
+          "backup_inputs": "[%key:entity::sensor::feels_like::state_attributes::backup_inputs%]"
         }
       }
     }
