@@ -1,0 +1,30 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7  # let freshly published releases settle first
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7  # let freshly published releases settle first
+    groups:
+      python:
+        patterns: ["*"]
+    # thermofeel is pinned in manifest.json too; tests/test_manifest_sync.py
+    # fails the PR if a bump leaves the two out of step.
+
+  - package-ecosystem: pre-commit
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7  # let freshly published releases settle first
